@@ -2,6 +2,11 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 
+const adminEmails = (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
 export const auth = betterAuth({
     database: prismaAdapter(prisma, {
         provider: "postgresql",
@@ -25,6 +30,16 @@ export const auth = betterAuth({
     callbacks: {
         async onSuccess(context: any) {
             console.log("Auth successful:", context.user);
+
+            const email = context?.user?.email?.toLowerCase?.();
+            const userId = context?.user?.id;
+
+            if (email && userId && adminEmails.includes(email)) {
+                await prisma.user.update({
+                    where: { id: userId },
+                    data: { role: "ADMIN" },
+                });
+            }
         },
         async onError(context: any) {
             console.error("Auth error:", context.error);

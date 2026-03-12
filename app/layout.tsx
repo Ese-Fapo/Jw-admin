@@ -16,8 +16,8 @@ const poppings = Poppins({
 
 
 export const metadata: Metadata = {
-  title: "Tech Blog",
-  description: "Clean blog frontend powered by your existing API, auth, and database backend.",
+  title: "JW Workbook App",
+  description: "Christian Life and Ministry workbook schedule with admin assignment control.",
 };
 
 export default function RootLayout({

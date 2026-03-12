@@ -36,15 +36,79 @@ model User {
   email         String
   emailVerified Boolean   @default(false)
   image         String?
+  role          UserRole  @default(USER)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
 
   posts         Post[]  
+  assignments   WorkbookAssignment[]
+  serviceAssignments ServiceAssignment[]
 
   @@unique([email])
   @@map("user")
+}
+
+model WorkbookAssignment {
+  id          String            @id @default(cuid())
+  weekOf      DateTime
+  section     WorkbookSection
+  partTitle   String
+  personName  String
+  assistantName String?
+  position    Int
+  notes       String?           @db.Text
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  createdById String
+  createdBy   User              @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([weekOf])
+  @@index([section, position])
+  @@map("workbook_assignments")
+}
+
+model ServiceAssignment {
+  id            String                    @id @default(cuid())
+  weekOf        DateTime
+  category      ServiceAssignmentCategory
+  title         String
+  assigneeName  String
+  assistantName String?
+  dayLabel      String?
+  timeLabel     String?
+  notes         String?                   @db.Text
+  position      Int
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  createdById   String
+  createdBy     User                      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([weekOf, category])
+  @@index([category, position])
+  @@map("service_assignments")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum WorkbookSection {
+  OPENING
+  TREASURES
+  APPLY_YOURSELF
+  LIVING_AS_CHRISTIANS
+  CONGREGATION_BIBLE_STUDY
+  CONCLUDING_COMMENTS
+}
+
+enum ServiceAssignmentCategory {
+  CART
+  CLEANING
+  SOUND
+  GENERAL_INFO
 }
 
 model Session {
