@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import {  Poppins } from "next/font/google";
+import type { ReactNode } from "react";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/general/navbar/Navbar";
 import Footer from "./components/general/Footer";
@@ -15,26 +16,26 @@ const poppings = Poppins({
 
 
 export const metadata: Metadata = {
-  title: "Bem Site Developer",
-  description: "Bem Site Developer - web development, technology insights, and modern digital experiences.",
+  title: "Tech Blog",
+  description: "Clean blog frontend powered by your existing API, auth, and database backend.",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
     <html lang="pt-BR">
       <body
-        className={`${poppings.className} antialiased bg-black min-h-screen`}
+        className={`${poppings.className} antialiased min-h-screen bg-slate-950 text-slate-100`}
       >
         <QueryProvider>
-          <Navbar/>
-          {children}
-          <SignInModal/>
-          <Footer/>
-          <Toaster/>
+          <Navbar />
+          <main>{children}</main>
+          <SignInModal />
+          <Footer />
+          <Toaster position="top-right" />
         </QueryProvider>
       </body>
     </html>

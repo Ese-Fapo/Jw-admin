@@ -5,84 +5,27 @@ import { useModalStore } from "@/app/store/useModalStore";
 import { FaGithub } from "react-icons/fa6";
 import { FaSignOutAlt } from "react-icons/fa";
 import { authClient } from "@/lib/auth-client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function SignInModal() {
   const { isOpen, closeSignIn } = useModalStore();
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
-  const [loadingUser, setLoadingUser] = useState(true);
-  const [loginProvider, setLoginProvider] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const session = await authClient.getSession();
-        console.log("Full session data:", session);
-        const userData = session.data?.user || null;
-        setUser(userData);
-        
-        // First, try to get provider from localStorage
-        const storedProvider = localStorage.getItem("loginProvider");
-        if (storedProvider) {
-          console.log("Provider from localStorage:", storedProvider);
-          setLoginProvider(storedProvider);
-        }
-        
-        // Detect login provider from session - try multiple approaches
-        if (session.data) {
-          // Log the full session structure to debug
-          console.log("Session data structure:", JSON.stringify(session.data, null, 2));
-          
-          // Try different ways to access provider info
-          const accounts = (session.data as any).user?.accounts;
-          const sessionAccounts = (session.data as any).accounts;
-          
-          console.log("Accounts from user:", accounts);
-          console.log("Accounts from session:", sessionAccounts);
-          
-          if (accounts && accounts.length > 0) {
-            const provider = accounts[0].providerId || accounts[0].provider;
-            console.log("Provider found:", provider);
-            setLoginProvider(provider);
-            localStorage.setItem("loginProvider", provider);
-          } else if (sessionAccounts && sessionAccounts.length > 0) {
-            const provider = sessionAccounts[0].providerId || sessionAccounts[0].provider;
-            console.log("Provider found from session:", provider);
-            setLoginProvider(provider);
-            localStorage.setItem("loginProvider", provider);
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching user:", err);
-        setUser(null);
-        setLoginProvider(null);
-      } finally {
-        setLoadingUser(false);
-      }
-    };
-
-    if (isOpen) {
-      fetchUser();
-    }
-  }, [isOpen]);
+  const { data: session, isPending } = authClient.useSession();
+  const user = session?.user;
 
   const signWithGoogle = async () => {
     try {
       setLoadingProvider("google");
       setError(null);
-      localStorage.setItem("loginProvider", "google");
       await authClient.signIn.social({
         provider: "google",
         callbackURL: "/",
       });
-      setLoginProvider("google");
       closeSignIn();
     } catch (err) {
       console.error("Google sign in error:", err);
       setError("Falha ao fazer login com Google. Tente novamente.");
-      localStorage.removeItem("loginProvider");
     } finally {
       setLoadingProvider(null);
     }
@@ -92,17 +35,14 @@ export default function SignInModal() {
     try {
       setLoadingProvider("github");
       setError(null);
-      localStorage.setItem("loginProvider", "github");
       await authClient.signIn.social({
         provider: "github",
         callbackURL: "/",
       });
-      setLoginProvider("github");
       closeSignIn();
     } catch (err) {
       console.error("GitHub sign in error:", err);
       setError("Falha ao fazer login com GitHub. Tente novamente.");
-      localStorage.removeItem("loginProvider");
     } finally {
       setLoadingProvider(null);
     }
@@ -112,9 +52,6 @@ export default function SignInModal() {
     try {
       setLoadingProvider("logout");
       await authClient.signOut();
-      setUser(null);
-      setLoginProvider(null);
-      localStorage.removeItem("loginProvider");
       closeSignIn();
     } catch (err) {
       console.error("Logout error:", err);
@@ -128,29 +65,18 @@ export default function SignInModal() {
 
   return (
     <Modal isOpen={isOpen} onClose={closeSignIn}>
-      {loadingUser ? (
+      {isPending ? (
         <div className="flex items-center justify-center py-8">
           <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : user ? (
         <div className="space-y-6">
           <div className="text-center">
-            <h2 className="text-xl font-semibold text-white mb-2">
-              {loginProvider === "github" && "Bem-vindo via GitHub!"}
-              {loginProvider === "google" && "Bem-vindo via Google!"}
-              {!loginProvider && "Bem-vindo!"}
-            </h2>
-            <p className="text-green-400 text-sm font-medium mb-4">✓ LOGGED IN</p>
-            {loginProvider && (
-              <div className="flex items-center justify-center gap-2 text-gray-300 text-sm">
-                {loginProvider === "github" && <FaGithub className="text-lg" />}
-                {loginProvider === "google" && <FcGoogle className="text-lg" />}
-                <span>Conectado com {loginProvider === "github" ? "GitHub" : "Google"}</span>
-              </div>
-            )}
+            <h2 className="text-xl font-semibold text-white mb-2">Logged in</h2>
+            <p className="text-green-400 text-sm font-medium mb-4">✓ Session active</p>
           </div>
 
-          <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/50 rounded-lg p-4">
+          <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
             <div className="flex items-center gap-3">
               {user.image && (
                 <img 
@@ -161,7 +87,7 @@ export default function SignInModal() {
               )}
               <div className="flex-1 text-left">
                 <p className="text-white font-semibold">{user.name}</p>
-                <p className="text-gray-300 text-sm">{user.email}</p>
+                <p className="text-slate-300 text-sm">{user.email}</p>
               </div>
             </div>
           </div>
@@ -187,10 +113,9 @@ export default function SignInModal() {
       ) : (
         <div className="space-y-4">
           <div className="text-center">
-            <h2 className="text-xl font-semibold text-white mb-2">Fazer Login</h2>
-            <p className="text-red-400 text-sm font-medium mb-4">✗ LOGGED OUT</p>
-            <p className="text-gray-400 text-sm">
-              Continue com um provedor de login para acessar sua conta.
+            <h2 className="text-xl font-semibold text-white mb-2">Login</h2>
+            <p className="text-slate-400 text-sm">
+              Continue with a social account.
             </p>
           </div>
 
@@ -200,7 +125,6 @@ export default function SignInModal() {
             </div>
           )}
 
-          {/* Botões de login */}
           <div className="flex flex-col gap-4">
             <button 
               onClick={signWithGoogle}
@@ -215,7 +139,7 @@ export default function SignInModal() {
               ) : (
                 <>
                   <FcGoogle className="text-2xl" />
-                  <span>Continuar com Google</span>
+                  <span>Continue with Google</span>
                 </>
               )}
             </button>
@@ -232,12 +156,12 @@ export default function SignInModal() {
               ) : (
                 <>
                   <FaGithub className="text-2xl" />
-                  <span>Continuar com GitHub</span>
+                  <span>Continue with GitHub</span>
                 </>
               )}
             </button>
           </div>
-          <p className="text-gray-500 text-center text-xs">Ao continuar, você concorda com nossos termos e condições.</p>
+          <p className="text-gray-500 text-center text-xs">By continuing, you agree to the platform terms.</p>
         </div>
       )}
     </Modal>

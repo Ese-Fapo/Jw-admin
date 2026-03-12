@@ -1,212 +1,11 @@
 @import "tailwindcss";
-
-
-
-
-/* Scroll Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-50px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(50px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes pulseSlow {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.8;
-  }
-}
-
-@keyframes loadingShimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes dramaBounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-/* Animation Classes */
-.animate-fade-in {
-  animation: fadeIn 0.8s ease-out forwards;
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.8s ease-out forwards;
-}
-
-.animate-slide-down {
-  animation: slideDown 0.8s ease-out forwards;
-}
-
-.animate-slide-up {
-  animation: slideUp 0.8s ease-out forwards;
-}
-
-.animate-slide-in-left {
-  animation: slideInLeft 0.8s ease-out forwards;
-}
-
-.animate-slide-in-right {
-  animation: slideInRight 0.8s ease-out forwards;
-}
-
-.animate-scale-in {
-  animation: scaleIn 0.6s ease-out forwards;
-}
-
-.animate-pulse-slow {
-  animation: pulseSlow 3s ease-in-out infinite;
-}
-
-.animate-loading-shimmer {
-  animation: loadingShimmer 2s infinite;
-}
-
-.animate-drama-bounce {
-  animation: dramaBounce 0.6s ease-in-out infinite;
-}
-
-/* Animation Delays */
-.animation-delay-300 {
-  animation-delay: 0.3s;
-  opacity: 0;
-}
-
-.animation-delay-100 {
-  animation-delay: 0.1s;
-}
-
-.animation-delay-200 {
-  animation-delay: 0.2s;
-}
-
-.animation-delay-400 {
-  animation-delay: 0.4s;
-}
-
-.animation-delay-500 {
-  animation-delay: 0.5s;
-  opacity: 0;
-}
-
-.animation-delay-700 {
-  animation-delay: 0.7s;
-  opacity: 0;
-}
-
-.animation-delay-900 {
-  animation-delay: 0.9s;
-  opacity: 0;
-}
-
-.animation-delay-1000 {
-  animation-delay: 1s;
-  opacity: 0;
-}
-
-.animation-delay-1200 {
-  animation-delay: 1.2s;
-  opacity: 0;
-}
-
-.animation-delay-1400 {
-  animation-delay: 1.4s;
-  opacity: 0;
-}
-
-.animation-delay-1600 {
-  animation-delay: 1.6s;
-  opacity: 0;
-}
-
-/* Smooth scroll behavior */
 html {
   scroll-behavior: smooth;
 }
 
 body {
   overflow-x: hidden;
+  background: #020617;
 }
 
 img,
@@ -218,56 +17,57 @@ svg {
   height: auto;
 }
 
-/* Add parallax effect on scroll */
-@media (prefers-reduced-motion: no-preference) {
-  * {
-    scroll-behavior: smooth;
-  }
+.content-wrap {
+  @apply w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.card {
+  @apply rounded-xl border border-slate-800 bg-slate-900/70;
 }
 
 /* Article Content Styling */
 .prose h1 {
-  @apply text-4xl font-bold text-white mb-6 mt-8;
+  @apply text-3xl font-bold text-white mb-5 mt-8;
 }
 
 .prose h2 {
-  @apply text-3xl font-bold text-blue-400 mb-5 mt-7 border-b border-gray-700 pb-2;
+  @apply text-2xl font-bold text-slate-100 mb-4 mt-7;
 }
 
 .prose h3 {
-  @apply text-2xl font-semibold text-indigo-400 mb-4 mt-6;
+  @apply text-xl font-semibold text-slate-200 mb-3 mt-6;
 }
 
 .prose h4 {
-  @apply text-xl font-semibold text-purple-400 mb-3 mt-5;
+  @apply text-lg font-semibold text-slate-300 mb-2 mt-5;
 }
 
 .prose h5 {
-  @apply text-lg font-semibold text-gray-300 mb-3 mt-4;
+  @apply text-base font-semibold text-slate-300 mb-2 mt-4;
 }
 
 .prose h6 {
-  @apply text-base font-semibold text-gray-400 mb-2 mt-3;
+  @apply text-sm font-semibold text-slate-400 mb-2 mt-3;
 }
 
 .prose p {
-  @apply text-gray-300 mb-4 leading-relaxed;
+  @apply text-slate-300 mb-4 leading-relaxed;
 }
 
 .prose ul {
-  @apply list-disc list-inside mb-4 space-y-2 text-gray-300;
+  @apply list-disc list-inside mb-4 space-y-2 text-slate-300;
 }
 
 .prose ol {
-  @apply list-decimal list-inside mb-4 space-y-2 text-gray-300;
+  @apply list-decimal list-inside mb-4 space-y-2 text-slate-300;
 }
 
 .prose li {
-  @apply text-gray-300 leading-relaxed;
+  @apply text-slate-300 leading-relaxed;
 }
 
 .prose a {
-  @apply text-blue-400 hover:text-blue-300 underline transition-colors;
+  @apply text-sky-400 hover:text-sky-300 underline transition-colors;
 }
 
 .prose strong {
@@ -275,19 +75,19 @@ svg {
 }
 
 .prose em {
-  @apply text-gray-200 italic;
+  @apply text-slate-200 italic;
 }
 
 .prose code {
-  @apply bg-gray-800 text-blue-300 px-2 py-1 rounded text-sm font-mono;
+  @apply bg-slate-800 text-sky-300 px-2 py-1 rounded text-sm font-mono;
 }
 
 .prose pre {
-  @apply bg-gray-900 border border-gray-700 rounded-lg p-4 overflow-x-auto mb-4;
+  @apply bg-slate-950 border border-slate-700 rounded-lg p-4 overflow-x-auto mb-4;
 }
 
 .prose blockquote {
-  @apply border-l-4 border-blue-500 pl-4 italic text-gray-400 my-4;
+  @apply border-l-4 border-sky-500 pl-4 italic text-slate-400 my-4;
 }
 
 .prose img {
@@ -295,14 +95,14 @@ svg {
 }
 
 .prose table {
-  @apply w-full border-collapse border border-gray-700 my-6;
+  @apply w-full border-collapse border border-slate-700 my-6;
 }
 
 .prose th {
-  @apply bg-gray-800 text-white font-semibold p-3 border border-gray-700;
+  @apply bg-slate-800 text-white font-semibold p-3 border border-slate-700;
 }
 
 .prose td {
-  @apply text-gray-300 p-3 border border-gray-700;
+  @apply text-slate-300 p-3 border border-slate-700;
 }
 

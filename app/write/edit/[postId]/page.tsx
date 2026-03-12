@@ -1,311 +1,204 @@
-
-
-
 "use client";
-import React, { useState, useEffect } from 'react'
-import ContainerLay from '@/PageLayout/ContainerLay'
-import axios from 'axios';
-import toast from 'react-hot-toast';
-import { authClient } from '@/lib/auth-client';
-import HomeButton from '@/app/components/general/HomeButton';
-import { useParams, useRouter } from 'next/navigation';
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import { authClient } from "@/lib/auth-client";
+
+interface PostResponse {
+  title: string;
+  excerpt: string;
+  content: string;
+  coverImageURL: string | null;
+}
 
 export default function EditPage() {
   const params = useParams();
   const router = useRouter();
   const postId = params.postId as string;
-  
-  const [content, setContent] = useState('')
-  const [title, setTitle] = useState('')
-  const [excerpt, setExcerpt] = useState('')
-  const [initialContent, setInitialContent] = useState('')
-  const [initialTitle, setInitialTitle] = useState('')
-  const [initialExcerpt, setInitialExcerpt] = useState('')
-  const [coverImage, setCoverImage] = useState<File | null>(null)
-  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null)
+
+  const [title, setTitle] = useState("");
+  const [excerpt, setExcerpt] = useState("");
+  const [content, setContent] = useState("");
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+
+  const [initialTitle, setInitialTitle] = useState("");
+  const [initialExcerpt, setInitialExcerpt] = useState("");
+  const [initialContent, setInitialContent] = useState("");
   const [currentCoverImageURL, setCurrentCoverImageURL] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load session and post data
   useEffect(() => {
-    let isActive = true;
+    let active = true;
 
-    const loadData = async () => {
+    const loadPage = async () => {
       try {
-        // Check session
         const session = await authClient.getSession();
-        if (!isActive) return;
-        setIsAuthenticated(!!session.data?.user);
+        if (!active) return;
 
-        // Fetch post data if authenticated
-        if (session.data?.user) {
-          const response = await axios.get(`/api/posts/${postId}`);
-          if (!isActive) return;
-          
-          const post = response.data;
-          setTitle(post.title || '');
-          setContent(post.content || '');
-          setExcerpt(post.excerpt || '');
-          setInitialTitle(post.title || '');
-          setInitialContent(post.content || '');
-          setInitialExcerpt(post.excerpt || '');
-          setCurrentCoverImageURL(post.coverImageURL || null);
-        }
-      } catch (error) {
-        if (!isActive) return;
-        console.error('Erro ao carregar dados:', error);
-        toast.error('Erro ao carregar artigo');
-        setIsAuthenticated(false);
+        const isLoggedIn = Boolean(session.data?.user);
+        setIsAuthenticated(isLoggedIn);
+
+        if (!isLoggedIn) return;
+
+        const response = await fetch(`/api/posts/${postId}`);
+        if (!response.ok) throw new Error("Could not load post");
+
+        const post = (await response.json()) as PostResponse;
+        if (!active) return;
+
+        setTitle(post.title ?? "");
+        setExcerpt(post.excerpt ?? "");
+        setContent(post.content ?? "");
+
+        setInitialTitle(post.title ?? "");
+        setInitialExcerpt(post.excerpt ?? "");
+        setInitialContent(post.content ?? "");
+        setCurrentCoverImageURL(post.coverImageURL ?? null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load post";
+        toast.error(message);
       } finally {
-        if (!isActive) return;
-        setIsCheckingSession(false);
-        setIsLoading(false);
+        if (active) {
+          setIsCheckingSession(false);
+          setIsLoading(false);
+        }
       }
     };
 
-    loadData();
+    loadPage();
     return () => {
-      isActive = false;
+      active = false;
     };
   }, [postId]);
 
-  useEffect(() => {
-    if (!coverImage) {
-      if (coverImagePreview) {
-        URL.revokeObjectURL(coverImagePreview);
-      }
-      setCoverImagePreview(null);
+  const hasChanges = useMemo(() => {
+    return (
+      title !== initialTitle ||
+      excerpt !== initialExcerpt ||
+      content !== initialContent ||
+      Boolean(coverImage)
+    );
+  }, [title, excerpt, content, initialTitle, initialExcerpt, initialContent, coverImage]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!hasChanges) {
+      toast("No changes to save.");
       return;
     }
-
-    const objectUrl = URL.createObjectURL(coverImage);
-    setCoverImagePreview(objectUrl);
-
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
-  }, [coverImage]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const hasTitleChange = title !== initialTitle;
-    const hasContentChange = content !== initialContent;
-    const hasExcerptChange = excerpt !== initialExcerpt;
-    const hasImageChange = !!coverImage;
-
-    if (!hasTitleChange && !hasContentChange && !hasExcerptChange && !hasImageChange) {
-      toast('Nada para atualizar.', { duration: 3000 });
-      return;
-    }
-
-    setIsSubmitting(true);
 
     try {
+      setIsSubmitting(true);
+
       const formData = new FormData();
-      if (hasTitleChange) formData.append('title', title);
-      if (hasContentChange) formData.append('content', content);
-      if (hasExcerptChange) formData.append('excerpt', excerpt);
-      if (hasImageChange && coverImage) formData.append('coverImage', coverImage);
+      if (title !== initialTitle) formData.append("title", title);
+      if (excerpt !== initialExcerpt) formData.append("excerpt", excerpt);
+      if (content !== initialContent) formData.append("content", content);
+      if (coverImage) formData.append("coverImage", coverImage);
 
-      const response = await axios.put(`/api/posts/${postId}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      const response = await fetch(`/api/posts/${postId}`, {
+        method: "PUT",
+        body: formData,
       });
 
-      // Show success message
-      toast.success('Artigo atualizado com sucesso!', {
-        duration: 5000,
-        style: {
-          background: '#10b981',
-          color: '#fff',
-        },
-      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Failed to update post");
 
-      // Redirect to the updated post
-      setTimeout(() => {
-        router.push(`/articles/${response.data.slug}`);
-      }, 1000);
-
-    } catch (error) {
-      console.error('Erro ao atualizar artigo:', error);
-      
-      if (axios.isAxiosError(error)) {
-        toast.error(
-          `Erro ao atualizar o artigo: ${error.response?.data?.error || error.message}`, 
-          { 
-            duration: 8000,
-            style: {
-              background: '#ef4444',
-              color: '#fff',
-            },
-          }
-        );
-      } else {
-        toast.error('Erro desconhecido ao atualizar o artigo', {
-          duration: 5000,
-          style: {
-            background: '#ef4444',
-            color: '#fff',
-          },
-        });
-      }
+      toast.success("Post updated successfully");
+      router.push(`/articles/${body.slug}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update post";
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
-  }
-     
+  };
+
   return (
-    <ContainerLay>
-      <section className='max-w-4xl mx-auto py-12 sm:py-16 lg:py-20 px-4 sm:px-6'>
-        {/* Home Button - Top */}
-        <div className='mb-8'>
-          <HomeButton />
-        </div>
-        {/* Header */}
-        <div className='mb-12 animate-fade-in'>
-          <h1 className='text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4'>
-            Editar  <span className='text-blue-500'>artigo</span>
-          </h1>
-          <p className='text-lg text-gray-400'>
-            Compartilhe seus conhecimentos e inspire nossa comunidade
-          </p>
-        </div>
+    <section className="content-wrap py-10 sm:py-14">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Edit post</h1>
+        <p className="mt-2 text-sm text-slate-400">Uses your existing authenticated PUT /api/posts/[slug] endpoint.</p>
+      </div>
 
-        {isCheckingSession || isLoading ? (
-          <div className='flex items-center justify-center py-16'>
-            <div className='w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin' />
-            <span className='ml-3 text-gray-400'>Carregando artigo...</span>
-          </div>
-        ) : !isAuthenticated ? (
-          <div className='bg-gray-900/50 border border-gray-700 rounded-lg p-6 text-center'>
-            <h2 className='text-xl font-semibold text-white mb-2'>Acesso restrito</h2>
-            <p className='text-gray-400'>
-              Você precisa estar logado para editar um artigo.
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className='space-y-8'>
-          {/* Title Input */}
-          <div className='space-y-3'>
-            <label htmlFor='title' className='block text-sm sm:text-base font-semibold text-gray-200'>
-              Título do Artigo
-            </label>
+      {isCheckingSession || isLoading ? (
+        <p className="text-sm text-slate-400">Loading editor...</p>
+      ) : !isAuthenticated ? (
+        <div className="card p-5">
+          <p className="text-sm text-slate-300">You need to be logged in to edit this post.</p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="card space-y-5 p-6">
+          <div>
+            <label htmlFor="title" className="mb-1 block text-sm text-slate-300">Title</label>
             <input
-              type='text'
-              id='title'
+              id="title"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className='w-full px-4 sm:px-6 py-3 border border-gray-700 rounded-lg bg-gray-900/50 text-white text-sm sm:text-base placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200'
-              placeholder='Digite o título do seu artigo...'
-              disabled={isSubmitting}
+              onChange={(event) => setTitle(event.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
             />
           </div>
 
-          {/* Excerpt Input */}
-          <div className='space-y-3'>
-            <label htmlFor='excerpt' className='block text-sm sm:text-base font-semibold text-gray-200'>
-              Resumo do Artigo
-            </label>
+          <div>
+            <label htmlFor="excerpt" className="mb-1 block text-sm text-slate-300">Excerpt</label>
             <textarea
-              id='excerpt'
-              value={excerpt}
-              onChange={(e) => setExcerpt(e.target.value)}
-              className='w-full px-4 sm:px-6 py-3 border border-gray-700 rounded-lg bg-gray-900/50 text-white text-sm sm:text-base placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none'
-              placeholder='Digite um breve resumo do seu artigo...'
+              id="excerpt"
               rows={3}
-              disabled={isSubmitting}
+              value={excerpt}
+              onChange={(event) => setExcerpt(event.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
             />
           </div>
 
-          {/* Image Upload */}
-          <div className='space-y-3'>
-            <label htmlFor='coverImage' className='block text-sm sm:text-base font-semibold text-gray-200'>
-              Imagem de Capa {currentCoverImageURL && '(Opcional - deixe em branco para manter a atual)'}
-            </label>
+          <div>
+            <label htmlFor="coverImage" className="mb-1 block text-sm text-slate-300">Replace cover image (optional)</label>
             {currentCoverImageURL && !coverImage && (
-              <div className='mb-3'>
-                <img 
-                  src={currentCoverImageURL} 
-                  alt="Current cover" 
-                  className='w-full sm:max-w-md h-40 sm:h-48 object-cover rounded-lg border border-gray-700'
-                />
-                <p className='text-xs text-gray-400 mt-2'>Imagem atual</p>
-              </div>
+              <p className="mb-2 text-xs text-slate-500">Current cover image is set.</p>
             )}
-            {coverImagePreview && (
-              <div className='mb-3'>
-                <img
-                  src={coverImagePreview}
-                  alt="New cover preview"
-                  className='w-full sm:max-w-md h-40 sm:h-48 object-cover rounded-lg border border-blue-500/60 shadow-lg'
-                />
-                <p className='text-xs text-blue-400 mt-2'>Pré-visualização da nova imagem</p>
-              </div>
-            )}
-            <div className='relative'>
-              <input
-                type='file'
-                accept='image/*'
-                id='coverImage'
-                onChange={(e) => setCoverImage(e.target.files?.[0] || null)}
-                className='block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 transition-colors duration-200'
-                disabled={isSubmitting}
-              />
-              {coverImage && (
-                <p className='mt-2 text-sm text-gray-400'>
-                  Nova imagem selecionada: <span className='text-blue-400'>{coverImage.name}</span>
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Rich Text Editor */}
-          <div className='space-y-3'>
-            <label className='block text-sm sm:text-base font-semibold text-gray-200'>
-              Conteúdo do Artigo
-            </label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className='w-full px-4 sm:px-6 py-4 border border-gray-700 rounded-lg bg-gray-900/50 text-white text-sm sm:text-base placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-mono resize-none'
-              placeholder='Digite o conteúdo do seu artigo aqui...'
-              rows={15}
-              disabled={isSubmitting}
+            <input
+              id="coverImage"
+              type="file"
+              accept="image/*"
+              onChange={(event) => setCoverImage(event.target.files?.[0] ?? null)}
+              className="w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-sky-600 file:px-3 file:py-2 file:text-white hover:file:bg-sky-500"
             />
           </div>
 
-          {/* Submit Button */}
-          <div className='flex flex-col sm:flex-row gap-4 pt-6 justify-end'>
+          <div>
+            <label htmlFor="content" className="mb-1 block text-sm text-slate-300">Content</label>
+            <textarea
+              id="content"
+              rows={14}
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex gap-3">
             <button
-              type='button'
+              type="button"
               onClick={() => router.back()}
-              className='w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white font-semibold px-8 py-3 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed'
-              disabled={isSubmitting}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:bg-slate-900"
             >
-              Cancelar
+              Cancel
             </button>
             <button
-              type='submit'
-              className='w-full sm:w-auto bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold px-8 py-3 rounded-lg transition-all duration-200 transform sm:hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none'
+              type="submit"
               disabled={isSubmitting}
+              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-60"
             >
-              {isSubmitting ? 'Atualizando...' : 'Atualizar Artigo'}
+              {isSubmitting ? "Saving..." : "Save changes"}
             </button>
           </div>
         </form>
-        )}
-        
-        {/* Home Button - Bottom */}
-        <div className='mt-12 flex justify-center'>
-          <HomeButton />
-        </div>
-      </section>
-    </ContainerLay>
-  )
+      )}
+    </section>
+  );
 }
-
