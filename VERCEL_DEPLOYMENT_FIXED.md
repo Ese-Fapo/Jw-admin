@@ -30,19 +30,24 @@ Go to your Vercel project settings → Environment Variables and add:
 
 ```
 DATABASE_URL=postgresql://...?sslmode=require
-BETTER_AUTH_SECRET=<random-32+-char-string>
-GOOGLE_CLIENT_ID=<your-google-id>
-GOOGLE_CLIENT_SECRET=<your-google-secret>
-GITHUB_CLIENT_ID=<your-github-id>
-GITHUB_CLIENT_SECRET=<your-github-secret>
+NEXT_PUBLIC_FIREBASE_API_KEY=<your-firebase-api-key>
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=<your-project>.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=<your-project-id>
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=<your-project>.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=<firebase-sender-id>
+NEXT_PUBLIC_FIREBASE_APP_ID=<firebase-app-id>
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=<firebase-measurement-id>
+FIREBASE_SERVICE_ACCOUNT_KEY=<firebase-admin-json>
+FIREBASE_DATABASE_URL=https://<your-project>.firebaseio.com
+NEXT_PUBLIC_ADMIN_EMAILS=<admin@example.com>
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=<your-cloudinary-name>
 CLOUDINARY_API_KEY=<your-api-key>
 CLOUDINARY_API_SECRET=<your-api-secret>
 ```
 
-### 2. Update OAuth Redirect URIs
-- **Google Cloud Console:** Add `https://your-vercel-domain.vercel.app/api/auth/callback/google`
-- **GitHub Settings:** Update to `https://your-vercel-domain.vercel.app/api/auth/callback/github`
+### 2. Update Firebase Authorized Domains
+- In Firebase Console → Authentication → Settings → Authorized domains
+- Add `your-vercel-domain.vercel.app`
 
 ### 3. Database Migrations
 Once deployed, run migrations on your production database:
@@ -70,7 +75,7 @@ npx prisma migrate deploy
 |-------|----------|
 | `DATABASE_URL not found` | Add to Vercel env vars |
 | `Prisma migration failed` | Run `npx prisma migrate deploy` locally first |
-| `Auth redirects to localhost` | Check BETTER_AUTH_URL is not hardcoded in env |
+| `Firebase popup fails` | Add your Vercel domain to Firebase Authorized Domains |
 | `Build times out` | Increase timeout in vercel.json or optimize queries |
 
 ## File Structure Now
@@ -82,7 +87,9 @@ my-app/
 │   └── migrations/            ✅ Fixed: now tracked in git
 ├── lib/
 │   ├── prisma.ts              ✅ Fixed: improved adapter config
-│   └── auth.ts
+│   ├── firebase.ts            ✅ Firebase client init
+│   ├── firebase-auth.ts       ✅ Client auth helpers
+│   └── firebase-admin.ts      ✅ Server auth verification
 ├── .gitignore                 ✅ Fixed: removed /prisma/migrations
 ├── .env.example               ✅ Complete template
 ├── package.json               ✅ Build script verified

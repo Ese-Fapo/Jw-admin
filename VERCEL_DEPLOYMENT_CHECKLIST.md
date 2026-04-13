@@ -14,15 +14,11 @@ This checklist confirms that the project is ready for Vercel deployment.
 - [x] **TypeScript** - Strict mode enabled and compiles without errors
 
 ### ✅ Authentication Setup
-- [x] **Better Auth Library** - Installed and configured
-- [x] **Prisma Adapter** - PostgreSQL adapter configured
-- [x] **Auth Client** - Properly exported at `lib/auth-client.ts`
-- [x] **Auth Server** - Configured at `lib/auth.ts` with:
-  - Google OAuth provider
-  - GitHub OAuth provider
-  - Email/password authentication
-  - Auto-detection of deployment URL via `VERCEL_URL`
-- [x] **Auth API Route** - Dynamic route handler at `app/api/auth/[...all]/route.ts`
+- [x] **Firebase Client SDK** - Configured in `lib/firebase.ts`
+- [x] **Firebase Auth Helpers** - Configured in `lib/firebase-auth.ts`
+- [x] **Firebase Admin SDK** - Configured in `lib/firebase-admin.ts`
+- [x] **Auth Client Compatibility Layer** - Exported at `lib/auth-client.ts`
+- [x] **Auth Provider** - Configured in `app/providers/AuthProvider.tsx`
 
 ### ✅ Database Configuration
 - [x] **Prisma Schema** - PostgreSQL provider configured
@@ -44,22 +40,28 @@ Create these in Vercel project settings:
 DATABASE_URL=postgresql://user:password@host:5432/database?sslmode=require
 ```
 
-**Authentication - Better Auth:**
+**Firebase Client:**
 ```
-BETTER_AUTH_SECRET=<random-32+-character-string>
-BETTER_AUTH_URL=(leave blank - auto-detects from VERCEL_URL)
+NEXT_PUBLIC_FIREBASE_API_KEY=<your-firebase-api-key>
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=<your-project>.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=<your-project-id>
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=<your-project>.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=<firebase-sender-id>
+NEXT_PUBLIC_FIREBASE_APP_ID=<firebase-app-id>
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=<firebase-measurement-id>
 ```
 
-**OAuth - Google:**
+**Firebase Server:**
 ```
-GOOGLE_CLIENT_ID=<your-google-client-id>.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=<your-google-client-secret>
+FIREBASE_SERVICE_ACCOUNT_KEY=<json-service-account>
+FIREBASE_DATABASE_URL=https://<your-project>.firebaseio.com
+NEXT_PUBLIC_ADMIN_EMAILS=<comma-separated-admin-emails>
 ```
 
-**OAuth - GitHub:**
+**OAuth Providers:**
 ```
-GITHUB_CLIENT_ID=<your-github-client-id>
-GITHUB_CLIENT_SECRET=<your-github-client-secret>
+# Managed in Firebase Authentication console
+# Example enabled provider: Google
 ```
 
 **Image Storage - Cloudinary:**
@@ -80,22 +82,16 @@ CLOUDINARY_API_SECRET=<your-cloudinary-api-secret>
 - [x] **tsconfig.json** - TypeScript configuration complete
 
 ### ✅ API Routes
-- [x] **Auth Routes** - `app/api/auth/[...all]/route.ts`
 - [x] **Posts API** - CRUD operations configured
 - [x] **Search API** - Post search functionality
 - [x] **Recent Posts API** - Latest posts endpoint
 
-### ✅ OAuth Redirect URIs (To Configure)
+### ✅ Firebase Authorized Domains (To Configure)
 
-Before deploying, update these in your OAuth provider settings:
+Before deploying, update these in Firebase Console:
 
-**Google Cloud Console:**
-- Development: `http://localhost:3000/api/auth/callback/google`
-- Production: `https://your-vercel-domain.vercel.app/api/auth/callback/google`
-
-**GitHub Developer Settings:**
-- Development: `http://localhost:3000/api/auth/callback/github`
-- Production: `https://your-vercel-domain.vercel.app/api/auth/callback/github`
+- Development: `localhost`
+- Production: `your-vercel-domain.vercel.app`
 
 ### ✅ Prisma Migrations
 
@@ -142,7 +138,7 @@ git push origin main
 
 ### 6. Post-Deployment Verification
 - [ ] Site loads successfully
-- [ ] Authentication works (sign in with Google/GitHub)
+- [ ] Authentication works (Firebase Google sign-in)
 - [ ] Post creation works
 - [ ] Image uploads work via Cloudinary
 - [ ] Environment variables are correctly set
@@ -152,14 +148,11 @@ git push origin main
 ### "DATABASE_URL not found" Error
 **Solution:** Check that `DATABASE_URL` is set in Vercel environment variables for the Production environment.
 
-### Authentication Redirects to localhost:3000
-**Solution:** `BETTER_AUTH_URL` should be empty or commented out in Vercel. The library auto-detects from `VERCEL_URL`.
-
-### OAuth Callback Fails (401/403)
+### Firebase Popup / Auth Fails (401/403)
 **Solution:** 
-1. Verify redirect URIs match in Google Cloud Console and GitHub
-2. Ensure credentials are correct in Vercel environment variables
-3. Wait 5-10 minutes for OAuth apps to refresh
+1. Verify your Vercel domain is added to Firebase Authorized Domains
+2. Ensure Firebase env vars are correct in Vercel
+3. Ensure Google sign-in is enabled in Firebase Authentication
 
 ### Prisma Migration Fails
 **Solution:**
@@ -180,14 +173,14 @@ npm run lint   # Check for linting issues (note: ESLint config issue is non-bloc
 ### Monitor Application
 - Check Vercel Dashboard for errors
 - Monitor database usage
-- Review authentication logs
+- Review Firebase Authentication logs
 
 ### Security Checklist
 - [x] `.env` files are git-ignored
 - [x] Credentials never committed to GitHub
-- [x] BETTER_AUTH_SECRET is secure (32+ characters)
+- [x] FIREBASE_SERVICE_ACCOUNT_KEY is server-only
 - [x] Database connection uses SSL mode
-- [x] OAuth credentials are production secrets
+- [x] Firebase project credentials are production secrets
 
 ### Maintenance
 - Monitor database connections

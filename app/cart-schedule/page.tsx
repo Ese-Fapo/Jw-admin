@@ -11,41 +11,53 @@ function startOfWeek(date: Date) {
   return result;
 }
 
+function hasConfiguredDatabase() {
+  const databaseUrl = process.env.DATABASE_URL ?? "";
+
+  if (!databaseUrl) return false;
+
+  return !["USER", "PASSWORD", "HOST", "DATABASE"].some((token) =>
+    databaseUrl.includes(token)
+  );
+}
+
 export default async function CartSchedulePage() {
   const weekOf = startOfWeek(new Date());
 
-  let dbUnavailable = false;
+  let dbUnavailable = !hasConfiguredDatabase();
   let rows = defaultCartSchedule;
 
-  try {
-    const dbRows = await prisma.serviceAssignment.findMany({
-      where: { weekOf, category: ServiceAssignmentCategory.CART },
-      orderBy: [{ position: "asc" }],
-      select: {
-        title: true,
-        assigneeName: true,
-        assistantName: true,
-        dayLabel: true,
-        timeLabel: true,
-        notes: true,
-        position: true,
-      },
-    });
+  if (!dbUnavailable) {
+    try {
+      const dbRows = await prisma.serviceAssignment.findMany({
+        where: { weekOf, category: ServiceAssignmentCategory.CART },
+        orderBy: [{ position: "asc" }],
+        select: {
+          title: true,
+          assigneeName: true,
+          assistantName: true,
+          dayLabel: true,
+          timeLabel: true,
+          notes: true,
+          position: true,
+        },
+      });
 
-    if (dbRows.length > 0) {
-      rows = dbRows.map((row) => ({
-        title: row.title,
-        assigneeName: row.assigneeName,
-        assistantName: row.assistantName,
-        dayLabel: row.dayLabel ?? "—",
-        timeLabel: row.timeLabel ?? "—",
-        notes: row.notes,
-        position: row.position,
-      }));
+      if (dbRows.length > 0) {
+        rows = dbRows.map((row) => ({
+          title: row.title,
+          assigneeName: row.assigneeName,
+          assistantName: row.assistantName,
+          dayLabel: row.dayLabel ?? "—",
+          timeLabel: row.timeLabel ?? "—",
+          notes: row.notes,
+          position: row.position,
+        }));
+      }
+    } catch (error) {
+      dbUnavailable = true;
+      console.error("Cart schedule unavailable:", error);
     }
-  } catch (error) {
-    dbUnavailable = true;
-    console.error("Cart schedule unavailable:", error);
   }
 
   const assignedCount = rows.filter((row) => row.assigneeName !== "To be assigned").length;

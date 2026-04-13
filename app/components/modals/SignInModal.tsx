@@ -2,26 +2,26 @@
 import { FcGoogle } from "react-icons/fc";
 import Modal from "./Modal";
 import { useModalStore } from "@/app/store/useModalStore";
-import { FaGithub } from "react-icons/fa6";
 import { FaSignOutAlt } from "react-icons/fa";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/firebase-auth";
 import { useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { useRouter } from "next/navigation";
 
 export default function SignInModal() {
   const { isOpen, closeSignIn } = useModalStore();
+  const { user, signOut } = useAuth();
+  const router = useRouter();
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { data: session, isPending } = authClient.useSession();
-  const user = session?.user;
 
   const signWithGoogle = async () => {
     try {
       setLoadingProvider("google");
       setError(null);
-      await authClient.signIn.social({
-        provider: "google",
-        callbackURL: "/",
-      });
+      await authClient.signIn.social({ provider: "google" });
+      router.push("/admin");
       closeSignIn();
     } catch (err) {
       console.error("Google sign in error:", err);
@@ -31,27 +31,10 @@ export default function SignInModal() {
     }
   };
 
-  const signWithGithub = async () => {
-    try {
-      setLoadingProvider("github");
-      setError(null);
-      await authClient.signIn.social({
-        provider: "github",
-        callbackURL: "/",
-      });
-      closeSignIn();
-    } catch (err) {
-      console.error("GitHub sign in error:", err);
-      setError("Falha ao fazer login com GitHub. Tente novamente.");
-    } finally {
-      setLoadingProvider(null);
-    }
-  };
-
   const handleLogout = async () => {
     try {
       setLoadingProvider("logout");
-      await authClient.signOut();
+      await signOut();
       closeSignIn();
     } catch (err) {
       console.error("Logout error:", err);
@@ -65,11 +48,7 @@ export default function SignInModal() {
 
   return (
     <Modal isOpen={isOpen} onClose={closeSignIn}>
-      {isPending ? (
-        <div className="flex items-center justify-center py-8">
-          <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : user ? (
+      {user ? (
         <div className="space-y-6">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-white mb-2">Logged in</h2>
@@ -81,7 +60,7 @@ export default function SignInModal() {
               {user.image && (
                 <img 
                   src={user.image} 
-                  alt={user.name}
+                  alt={user.name ?? "User avatar"}
                   className="w-12 h-12 rounded-full border-2 border-blue-500"
                 />
               )}
@@ -117,6 +96,12 @@ export default function SignInModal() {
             <p className="text-slate-400 text-sm">
               Continue with a social account.
             </p>
+            <p className="mt-2 text-xs text-slate-500">
+              Need registration options?{" "}
+              <Link href="/auth?mode=register" onClick={closeSignIn} className="text-sky-400 hover:text-sky-300">
+                Open register / sign-in page
+              </Link>
+            </p>
           </div>
 
           {error && (
@@ -140,23 +125,6 @@ export default function SignInModal() {
                 <>
                   <FcGoogle className="text-2xl" />
                   <span>Continue with Google</span>
-                </>
-              )}
-            </button>
-            <button 
-              onClick={signWithGithub}
-              disabled={loadingProvider !== null}
-              className="w-full bg-gray-800 hover:bg-gray-700 disabled:bg-gray-600 text-white px-4 py-3 rounded-md font-medium transition-colors duration-300 flex items-center justify-center gap-2"
-            >
-              {loadingProvider === "github" ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Conectando...</span>
-                </div>
-              ) : (
-                <>
-                  <FaGithub className="text-2xl" />
-                  <span>Continue with GitHub</span>
                 </>
               )}
             </button>

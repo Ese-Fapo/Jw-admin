@@ -2,7 +2,20 @@ import { WorkbookSection } from "@prisma/client";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { workbookSectionLabels, workbookTemplateParts } from "@/lib/workbook-template";
-import PrintWorkbookButton from "@/app/components/general/PrintWorkbookButton";
+
+
+const weekendMeetingParts = [
+  {
+    title: "Public Talk",
+    subtitle: "Weekend meeting part",
+    description: "Prepare the speaker assignment, chairman support, and congregation reminders.",
+  },
+  {
+    title: "Watchtower Study",
+    subtitle: "Weekend meeting part",
+    description: "Track reader support, conductor coordination, and follow-up notes.",
+  },
+];
 
 const sectionStyles: Record<WorkbookSection, { chip: string; header: string }> = {
   OPENING: {
@@ -40,6 +53,16 @@ function startOfWeek(date: Date) {
   return result;
 }
 
+function hasConfiguredDatabase() {
+  const databaseUrl = process.env.DATABASE_URL ?? "";
+
+  if (!databaseUrl) return false;
+
+  return !["USER", "PASSWORD", "HOST", "DATABASE"].some((token) =>
+    databaseUrl.includes(token)
+  );
+}
+
 export default async function HomePage() {
   const weekOf = startOfWeek(new Date());
 
@@ -52,25 +75,27 @@ export default async function HomePage() {
     notes: string | null;
     position: number;
   }[] = [];
-  let dbUnavailable = false;
+  let dbUnavailable = !hasConfiguredDatabase();
 
-  try {
-    assignments = await prisma.workbookAssignment.findMany({
-      where: { weekOf },
-      orderBy: [{ section: "asc" }, { position: "asc" }],
-      select: {
-        id: true,
-        section: true,
-        partTitle: true,
-        personName: true,
-        assistantName: true,
-        notes: true,
-        position: true,
-      },
-    });
-  } catch (error) {
-    dbUnavailable = true;
-    console.error("Workbook data unavailable:", error);
+  if (!dbUnavailable) {
+    try {
+      assignments = await prisma.workbookAssignment.findMany({
+        where: { weekOf },
+        orderBy: [{ section: "asc" }, { position: "asc" }],
+        select: {
+          id: true,
+          section: true,
+          partTitle: true,
+          personName: true,
+          assistantName: true,
+          notes: true,
+          position: true,
+        },
+      });
+    } catch (error) {
+      dbUnavailable = true;
+      console.error("Workbook data unavailable:", error);
+    }
   }
 
   const grouped = assignments.reduce<Record<WorkbookSection, typeof assignments>>(
@@ -176,10 +201,16 @@ export default async function HomePage() {
               Week of {weekOf.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}
             </p>
           </div>
-          <PrintWorkbookButton />
+          
         </header>
 
-       
+        {dbUnavailable && (
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <strong>Database unavailable.</strong> Showing template placeholder data — no assignments are loaded.
+            Connect your database and refresh to see live data.
+          </div>
+        )}
+
         <div className="space-y-4">
           {(Object.keys(workbookSectionLabels) as WorkbookSection[]).map((section) => {
             const items = rowsBySection[section];
@@ -194,7 +225,36 @@ export default async function HomePage() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="space-y-3 p-3 md:hidden">
+                  {items.length === 0 ? (
+                    <div className="rounded-lg border border-[#d3dff0] bg-[#f8fbff] p-4 text-sm text-[#6b7f9b]">
+                      No parts assigned yet.
+                    </div>
+                  ) : (
+                    items.map((item) => (
+                      <div key={item.id} className="rounded-lg border border-[#d3dff0] bg-[#f8fbff] p-4 shadow-sm">
+                        <p className="text-sm font-semibold text-[#173b6c]">{item.partTitle}</p>
+                        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5d7393]">Assigned</p>
+                            <p className={`mt-1 font-medium ${item.isPlaceholder ? "text-[#7a8ca6]" : "text-[#175086]"}`}>
+                              {item.personName}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5d7393]">Assistant</p>
+                            <p className={`mt-1 ${item.isPlaceholder ? "text-[#7a8ca6]" : "text-[#2f5f95]"}`}>
+                              {item.assistantName ?? "—"}
+                            </p>
+                          </div>
+                        </div>
+                        {item.notes ? <p className="mt-3 text-sm text-[#4f6788]">{item.notes}</p> : null}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                   <table className="min-w-full text-left text-sm">
                     <thead className="bg-[#e8f0fb]">
                       <tr className="border-b border-[#b7c9e2]">
@@ -235,17 +295,29 @@ export default async function HomePage() {
         </div>
 
         <div className="mt-6 rounded-lg border border-[#9ab2d3] bg-white/85 p-4 sm:p-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-base font-semibold text-[#143b6f] sm:text-lg">Weekend Meetings</h2>
             <Link
               href="/cart-schedule"
-              className="rounded-md border border-[#2e5f96] bg-[#2e5f96] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#234b79]"
+              className="inline-flex items-center justify-center rounded-md border border-[#2e5f96] bg-[#2e5f96] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#234b79] sm:w-auto"
             >
               Open Cart Schedule
             </Link>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {weekendMeetingParts.map((part) => (
+              <div key={part.title} className="rounded-lg border border-[#b7c9e2] bg-[#f8fbff] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#5b7599]">{part.subtitle}</p>
+                <h3 className="mt-1 text-sm font-semibold text-[#173b6c] sm:text-base">{part.title}</h3>
+                <p className="mt-1 text-sm text-[#4f6788]">{part.description}</p>
+                <div className="mt-3 rounded-md bg-[#eef4fd] px-3 py-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5d7393]">Assigned</p>
+                  <p className="mt-1 text-sm font-medium text-[#7a8ca6]">To be assigned</p>
+                </div>
+              </div>
+            ))}
+
             <Link
               href="/cart-schedule"
               className="group rounded-lg border border-[#b7c9e2] bg-[#eef4fd] p-4 transition hover:border-[#2f5f95] hover:bg-[#e5eefb]"

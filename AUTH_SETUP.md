@@ -1,60 +1,56 @@
-# Google OAuth Authentication - Setup Guide
+# Firebase Authentication Setup Guide
 
-**Status:** Configuration Template
+**Status:** Active setup for the current app
 
 ## Configuration Steps
 
 ### 1. Environment Variables
-Create a `` file in the root directory (this file is gitignored and won't be tracked):
+Create a `.env.local` file in the project root and add your Firebase values:
 
 ```env
-GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-BETTER_AUTH_URL="http://localhost:3000"
-BETTER_AUTH_SECRET="your-secret-key"
-DATABASE_URL="your-database-url"
+NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-project-id"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your-project.firebasestorage.app"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="your-messaging-sender-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-app-id"
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="your-measurement-id"
+
+FIREBASE_SERVICE_ACCOUNT_KEY="{...your-service-account-json...}"
+FIREBASE_DATABASE_URL="https://your-project-id.firebaseio.com"
+
+NEXT_PUBLIC_ADMIN_EMAILS="admin@example.com"
+DATABASE_URL="your-postgresql-url"
 ```
 
-**Note:** Replace with your actual credentials from [Google Cloud Console](https://console.cloud.google.com/).
+### 2. Create a Firebase Project
 
-### 2. Getting Google OAuth Credentials
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a project or select an existing one
+3. Enable **Authentication** → **Google** provider
+4. Enable **Firestore Database**
+5. Open **Project settings** → **General** and copy your web app config
+6. Open **Project settings** → **Service accounts** and generate an admin key for server-side verification
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Navigate to "APIs & Services" > "Credentials"
-4. Click "Create Credentials" > "OAuth 2.0 Client ID"
-5. Configure OAuth consent screen if not already done
-6. Select "Web application" as application type
-7. Add authorized redirect URIs:
-   - `http://localhost:3000/api/auth/callback/google` (development)
-   - `https://yourdomain.com/api/auth/callback/google` (production)
-8. Copy the Client ID and Client Secret to your `.env` file
+### 3. Current Auth Files
 
-### 3. Auth Configuration
-**File:** `lib/auth.ts`
-- Prisma adapter configured
-- Google OAuth provider configured
-- Email/password auth enabled
-- Success and error callbacks added
+- `lib/firebase.ts` — Firebase client initialization
+- `lib/firebase-auth.ts` — client auth helpers and compatibility API
+- `lib/firebase-admin.ts` — server-side token verification
+- `app/providers/AuthProvider.tsx` — React auth context provider
 
-### 4. Auth Client
-**File:** `lib/auth-client.ts`
-- Better Auth client created for client-side usage
-- Properly exported for SignInModal component
+### 4. Testing
 
-## Testing
-
-1. Start the development server: `npm run dev`
-2. Navigate to the sign-in page
-3. Click "Sign in with Google"
-4. Authorize the application
-5. Verify successful authentication and redirect
+1. Start the development server with `npm run dev`
+2. Open the login modal or `/auth`
+3. Click **Continue with Google**
+4. Complete the Firebase Google sign-in popup
+5. Confirm the user appears as logged in
 
 ## Security Notes
 
-⚠️ **IMPORTANT:**
-- Never commit `.env` files to git
-- Never share your OAuth credentials publicly
-- Rotate credentials immediately if exposed
-- Use different credentials for development and production
-- Keep the `.gitignore` file updated
+⚠️ **Important:**
+- Never commit `.env` or `.env.local`
+- Keep `FIREBASE_SERVICE_ACCOUNT_KEY` server-only
+- Rotate Firebase service account credentials if exposed
+- Use separate Firebase projects for dev and production when possible

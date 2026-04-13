@@ -14,7 +14,7 @@ export default function Footer() {
             </p>
           </div>
 
-          <div className='flex items-center gap-4'>
+          <div className='flex flex-wrap items-center gap-x-4 gap-y-2'>
             <Link href='/' className='text-sm text-slate-400 hover:text-white'>Workbook</Link>
             <Link href='/cart-schedule' className='text-sm text-slate-400 hover:text-white'>Cart Schedule</Link>
             <Link href='/assignments' className='text-sm text-slate-400 hover:text-white'>Assignments</Link>

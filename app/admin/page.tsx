@@ -1,22 +1,44 @@
-import { redirect } from "next/navigation";
-import { getCurrentUserRole } from "@/lib/auth-guards";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/providers/AuthProvider";
 import AdminWorkbookControl from "./workbook-control";
 import ServiceControl from "./service-control";
 import { workbookSectionOptions } from "@/lib/workbook-template";
 
-export default async function AdminPage() {
-  const role = await getCurrentUserRole();
+export default function AdminPage() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
 
-  if (!role) {
-    redirect("/");
-  }
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/auth?mode=signin");
+      return;
+    }
 
-  if (role !== "ADMIN") {
+    if (!loading && user && user.role !== "ADMIN") {
+      router.replace("/field-service-report");
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) {
     return (
       <section className="content-wrap py-10 sm:py-14">
         <div className="card p-6">
-          <h1 className="text-2xl font-semibold text-white">Access denied</h1>
-          <p className="mt-2 text-sm text-slate-400">Only admins can access workbook control.</p>
+          <h1 className="text-2xl font-semibold text-white">Checking access...</h1>
+          <p className="mt-2 text-sm text-slate-400">Please wait while we verify your account.</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (user.role !== "ADMIN") {
+    return (
+      <section className="content-wrap py-10 sm:py-14">
+        <div className="card p-6">
+          <h1 className="text-2xl font-semibold text-white">Redirecting...</h1>
+          <p className="mt-2 text-sm text-slate-400">Taking you to your field service page.</p>
         </div>
       </section>
     );

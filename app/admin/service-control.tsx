@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { ServiceAssignmentCategory } from "@prisma/client";
 import { serviceCategoryLabels } from "@/lib/ministry-schedule";
+import { auth } from "@/lib/firebase";
 
 type ServiceAssignment = {
   id: string;
@@ -36,6 +37,15 @@ export default function ServiceControl() {
 
   const sortedRows = useMemo(() => [...rows].sort((a, b) => a.position - b.position), [rows]);
 
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const currentUser = auth.currentUser;
+    if (!currentUser) return headers;
+    const idToken = await currentUser.getIdToken();
+    headers.Authorization = `Bearer ${idToken}`;
+    return headers;
+  };
+
   const loadRows = async () => {
     setIsLoading(true);
     setError(null);
@@ -65,7 +75,7 @@ export default function ServiceControl() {
     try {
       const response = await fetch("/api/service-assignments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           weekOf,
           category,
@@ -101,7 +111,10 @@ export default function ServiceControl() {
   const handleDelete = async (id: string) => {
     setError(null);
     try {
-      const response = await fetch(`/api/service-assignments/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/service-assignments/${id}`, {
+        method: "DELETE",
+        headers: await getAuthHeaders(),
+      });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Failed to delete assignment");
       setRows((prev) => prev.filter((row) => row.id !== id));

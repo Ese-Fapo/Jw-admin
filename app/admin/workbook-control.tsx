@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { WorkbookSection } from "@prisma/client";
+import { auth } from "@/lib/firebase";
 
 type SectionOption = {
   label: string;
@@ -46,6 +47,15 @@ export default function AdminWorkbookControl({ sectionOptions }: { sectionOption
     [assignments]
   );
 
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const currentUser = auth.currentUser;
+    if (!currentUser) return headers;
+    const idToken = await currentUser.getIdToken();
+    headers.Authorization = `Bearer ${idToken}`;
+    return headers;
+  };
+
   const fetchAssignments = async () => {
     setIsLoading(true);
     setError(null);
@@ -73,7 +83,7 @@ export default function AdminWorkbookControl({ sectionOptions }: { sectionOption
     try {
       const response = await fetch("/api/workbook/template", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ weekOf, overwrite }),
       });
 
@@ -114,7 +124,7 @@ export default function AdminWorkbookControl({ sectionOptions }: { sectionOption
     try {
       const response = await fetch("/api/workbook/assignments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           weekOf,
           section,
@@ -148,6 +158,7 @@ export default function AdminWorkbookControl({ sectionOptions }: { sectionOption
     try {
       const response = await fetch(`/api/workbook/assignments/${id}`, {
         method: "DELETE",
+        headers: await getAuthHeaders(),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Failed to delete assignment");

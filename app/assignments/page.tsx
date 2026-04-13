@@ -18,41 +18,53 @@ function startOfWeek(date: Date) {
   return result;
 }
 
+function hasConfiguredDatabase() {
+  const databaseUrl = process.env.DATABASE_URL ?? "";
+
+  if (!databaseUrl) return false;
+
+  return !["USER", "PASSWORD", "HOST", "DATABASE"].some((token) =>
+    databaseUrl.includes(token)
+  );
+}
+
 export default async function AssignmentsPage() {
   const weekOf = startOfWeek(new Date());
 
-  let dbUnavailable = false;
+  let dbUnavailable = !hasConfiguredDatabase();
   let rows = defaultCongregationAssignments;
 
-  try {
-    const dbRows = await prisma.serviceAssignment.findMany({
-      where: {
-        weekOf,
-        category: {
-          in: [
-            ServiceAssignmentCategory.CLEANING,
-            ServiceAssignmentCategory.SOUND,
-            ServiceAssignmentCategory.GENERAL_INFO,
-          ],
+  if (!dbUnavailable) {
+    try {
+      const dbRows = await prisma.serviceAssignment.findMany({
+        where: {
+          weekOf,
+          category: {
+            in: [
+              ServiceAssignmentCategory.CLEANING,
+              ServiceAssignmentCategory.SOUND,
+              ServiceAssignmentCategory.GENERAL_INFO,
+            ],
+          },
         },
-      },
-      orderBy: [{ category: "asc" }, { position: "asc" }],
-      select: {
-        category: true,
-        title: true,
-        assigneeName: true,
-        assistantName: true,
-        notes: true,
-        position: true,
-      },
-    });
+        orderBy: [{ category: "asc" }, { position: "asc" }],
+        select: {
+          category: true,
+          title: true,
+          assigneeName: true,
+          assistantName: true,
+          notes: true,
+          position: true,
+        },
+      });
 
-    if (dbRows.length > 0) {
-      rows = dbRows;
+      if (dbRows.length > 0) {
+        rows = dbRows;
+      }
+    } catch (error) {
+      dbUnavailable = true;
+      console.error("Congregation assignments unavailable:", error);
     }
-  } catch (error) {
-    dbUnavailable = true;
-    console.error("Congregation assignments unavailable:", error);
   }
 
   const assignedCount = rows.filter((row) => row.assigneeName !== "To be assigned").length;

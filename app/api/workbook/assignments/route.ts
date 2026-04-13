@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const admin = await requireAdmin();
+    const admin = await requireAdmin(request);
     if (!admin.ok) {
       return NextResponse.json({ error: admin.message }, { status: admin.status });
     }

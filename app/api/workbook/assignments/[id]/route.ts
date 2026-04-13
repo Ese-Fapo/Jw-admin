@@ -16,7 +16,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await requireAdmin();
+    const admin = await requireAdmin(request);
     if (!admin.ok) {
       return NextResponse.json({ error: admin.message }, { status: admin.status });
     }
@@ -71,7 +71,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await requireAdmin();
+    const admin = await requireAdmin(request);
     if (!admin.ok) {
       return NextResponse.json({ error: admin.message }, { status: admin.status });
     }
