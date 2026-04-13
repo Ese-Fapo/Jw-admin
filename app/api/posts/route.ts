@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { getSessionUser } from '@/lib/auth-guards';
 import slugify from 'slugify';
 import { uploadToCloudinary } from '@/app/services/cloudinary';
 
@@ -15,11 +14,9 @@ import { uploadToCloudinary } from '@/app/services/cloudinary';
 export async function POST(request: NextRequest) {
   try {
     // Verify user authentication
-    const session = await auth.api.getSession({
-      headers: await headers()
-    });
+    const sessionUser = await getSessionUser(request);
     
-    if (!session || !session.user) {
+    if (!sessionUser) {
       return NextResponse.json(
         { error: 'Não autorizado' }, 
         { status: 401 }
@@ -68,7 +65,7 @@ export async function POST(request: NextRequest) {
         slug,
         coverImageURL: imageData.secure_url,
         coverImagePublicId: imageData.public_id,
-        authorId: session.user.id,
+        authorId: sessionUser.id,
       },
     });
 

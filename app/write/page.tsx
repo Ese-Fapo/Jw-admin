@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
+import { getAuthHeaders } from "@/lib/frontend-auth";
 
 export default function WritePage() {
   const router = useRouter();
@@ -57,6 +58,7 @@ export default function WritePage() {
 
       const response = await fetch("/api/posts", {
         method: "POST",
+        headers: await getAuthHeaders(),
         body: formData,
       });
 

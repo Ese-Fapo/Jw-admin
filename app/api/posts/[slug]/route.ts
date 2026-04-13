@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { uploadToCloudinary } from '@/app/services/cloudinary';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { getSessionUser } from '@/lib/auth-guards';
 
 /**
  * GET /api/posts/[slug]
@@ -58,11 +57,9 @@ export async function PUT(
 ) {
   try {
     // Verify user authentication
-    const session = await auth.api.getSession({
-      headers: await headers()
-    });
+    const sessionUser = await getSessionUser(request);
     
-    if (!session || !session.user) {
+    if (!sessionUser) {
       return NextResponse.json(
         { error: 'Não autorizado' }, 
         { status: 401 }
@@ -85,7 +82,7 @@ export async function PUT(
       );
     }
 
-    if (existingPost.authorId !== session.user.id) {
+    if (existingPost.authorId !== sessionUser.id) {
       return NextResponse.json(
         { error: 'Você não tem permissão para editar este artigo' },
         { status: 403 }
@@ -167,11 +164,9 @@ export async function DELETE(
 ) {
   try {
     // Verify user authentication
-    const session = await auth.api.getSession({
-      headers: await headers()
-    });
+    const sessionUser = await getSessionUser(request);
     
-    if (!session || !session.user) {
+    if (!sessionUser) {
       return NextResponse.json(
         { error: 'Não autorizado' }, 
         { status: 401 }
@@ -194,7 +189,7 @@ export async function DELETE(
       );
     }
 
-    if (existingPost.authorId !== session.user.id) {
+    if (existingPost.authorId !== sessionUser.id) {
       return NextResponse.json(
         { error: 'Você não tem permissão para excluir este artigo' },
         { status: 403 }

@@ -45,9 +45,23 @@ model User {
   posts         Post[]  
   assignments   WorkbookAssignment[]
   serviceAssignments ServiceAssignment[]
+  adminSignInHistory AdminSignInHistory[]
 
   @@unique([email])
   @@map("user")
+}
+
+model AdminSignInHistory {
+  id          String   @id @default(cuid())
+  adminUserId String
+  adminEmail  String
+  method      String
+  createdAt   DateTime @default(now())
+  adminUser   User     @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId, createdAt])
+  @@index([createdAt])
+  @@map("admin_sign_in_history")
 }
 
 model WorkbookAssignment {

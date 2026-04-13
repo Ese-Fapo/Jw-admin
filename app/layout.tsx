@@ -27,7 +27,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" data-scroll-behavior="smooth">
       <body
         className={`${poppings.className} antialiased min-h-screen bg-slate-950 text-slate-100`}
       >

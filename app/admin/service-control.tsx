@@ -40,7 +40,7 @@ export default function ServiceControl() {
   const getAuthHeaders = async (): Promise<Record<string, string>> => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     const currentUser = auth.currentUser;
-    if (!currentUser) return headers;
+    if (!currentUser) throw new Error("Authentication session is not ready. Please sign in again.");
     const idToken = await currentUser.getIdToken();
     headers.Authorization = `Bearer ${idToken}`;
     return headers;
@@ -124,8 +124,8 @@ export default function ServiceControl() {
   };
 
   return (
-    <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-      <form onSubmit={handleSubmit} className="card space-y-4 p-5">
+    <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-slate-700/80 bg-slate-950/60 p-5 shadow-lg">
         <h2 className="text-xl font-semibold text-white">Add cart/assignment item</h2>
 
         <div>
@@ -251,7 +251,7 @@ export default function ServiceControl() {
         </div>
       </form>
 
-      <div className="card p-5">
+      <div className="rounded-xl border border-slate-700/80 bg-slate-950/60 p-5 shadow-lg">
         <h2 className="text-xl font-semibold text-white">Current service items</h2>
         <p className="mt-1 text-xs text-slate-400">{weekOf}</p>
 

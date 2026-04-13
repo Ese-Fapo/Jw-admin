@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
+import { getAuthHeaders } from "@/lib/frontend-auth";
 
 interface PostResponse {
   title: string;
@@ -104,6 +105,7 @@ export default function EditPage() {
 
       const response = await fetch(`/api/posts/${postId}`, {
         method: "PUT",
+        headers: await getAuthHeaders(),
         body: formData,
       });
 

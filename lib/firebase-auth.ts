@@ -5,6 +5,9 @@ import {
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  signInWithEmailAndPassword,
   type User as FirebaseUser,
 } from "firebase/auth";
 import { auth, db } from "./firebase";
@@ -29,28 +32,78 @@ const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || "")
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
 
+async function getServerUser(firebaseUser: FirebaseUser): Promise<AuthUser | null> {
+  try {
+    const idToken = await firebaseUser.getIdToken();
+    const res = await fetch("/api/auth/me", {
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+    });
+
+    if (!res.ok) return null;
+    const body = await res.json();
+    if (!body?.user) return null;
+
+    return {
+      id: String(body.user.id),
+      email: body.user.email ?? null,
+      name: body.user.name ?? null,
+      image: body.user.image ?? null,
+      role: body.user.role === "ADMIN" ? "ADMIN" : "USER",
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function logAdminSignIn(method: "google" | "password") {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+
+  try {
+    const idToken = await currentUser.getIdToken();
+    await fetch("/api/auth/admin-signin", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ method }),
+    });
+  } catch (error) {
+    console.warn("Failed to record admin sign-in history:", error);
+  }
+}
+
 function fallbackAuthUser(firebaseUser: FirebaseUser): AuthUser {
+  const isAdminEmail = adminEmails.includes(firebaseUser.email?.toLowerCase() || "");
   return {
     id: firebaseUser.uid,
     email: firebaseUser.email,
     name: firebaseUser.displayName,
     image: firebaseUser.photoURL,
-    role: "USER",
+    role: isAdminEmail ? "ADMIN" : "USER",
   };
 }
 
 async function mapFirebaseUser(firebaseUser: FirebaseUser): Promise<AuthUser> {
+  const serverUser = await getServerUser(firebaseUser);
+  if (serverUser) return serverUser;
+
   try {
     const userDocRef = doc(db, "users", firebaseUser.uid);
     const userDoc = await getDoc(userDocRef);
     const userData = userDoc.data();
+    const isAdminEmail = adminEmails.includes(firebaseUser.email?.toLowerCase() || "");
+    const roleFromStore = userData?.role === "ADMIN" ? "ADMIN" : "USER";
 
     return {
       id: firebaseUser.uid,
       email: firebaseUser.email,
       name: firebaseUser.displayName,
       image: firebaseUser.photoURL,
-      role: userData?.role || "USER",
+      role: isAdminEmail ? "ADMIN" : roleFromStore,
     };
   } catch (error) {
     console.warn("Falling back to Firebase auth profile because Firestore is unavailable:", error);
@@ -165,8 +218,67 @@ export const authClient = {
           console.warn("Signed in with Google, but Firestore profile sync failed:", error);
         }
 
+        await logAdminSignIn("google");
+
         return user;
       }
+    },
+
+    async emailPassword({ email, password }: { email: string; password: string }) {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const user = credential.user;
+
+      // Block unverified accounts immediately
+      if (!user.emailVerified) {
+        await firebaseSignOut(auth);
+        const err = new Error("Email not verified. Please check your inbox and click the link.");
+        (err as Error & { code: string }).code = "auth/email-not-verified";
+        throw err;
+      }
+
+      const shouldBeAdmin = adminEmails.includes(user.email?.toLowerCase() || "");
+
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (!userDoc.exists()) {
+          await setDoc(userDocRef, {
+            email: user.email,
+            name: user.displayName || user.email?.split("@")[0] || "User",
+            image: user.photoURL,
+            role: shouldBeAdmin ? "ADMIN" : "USER",
+            emailVerified: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        } else {
+          await setDoc(
+            userDocRef,
+            {
+              role: shouldBeAdmin ? "ADMIN" : userDoc.data()?.role,
+              updatedAt: new Date(),
+            },
+            { merge: true }
+          );
+        }
+      } catch (error) {
+        console.warn("Firestore profile sync failed:", error);
+      }
+
+      await logAdminSignIn("password");
+
+      return user;
+    },
+  },
+
+  signUp: {
+    async emailPassword({ email, password }: { email: string; password: string }) {
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = credential.user;
+      await sendEmailVerification(user);
+      // Sign out immediately — they must verify before accessing the app
+      await firebaseSignOut(auth);
+      return { email: user.email };
     },
   },
 

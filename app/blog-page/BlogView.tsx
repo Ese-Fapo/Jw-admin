@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
+import { getAuthHeaders } from "@/lib/frontend-auth";
 
 interface BlogViewProps {
   slug: string;
@@ -70,7 +71,10 @@ export default function BlogView({ slug }: BlogViewProps) {
 
     try {
       setIsDeleting(true);
-      const response = await fetch(`/api/posts/${post.slug}`, { method: "DELETE" });
+      const response = await fetch(`/api/posts/${post.slug}`, {
+        method: "DELETE",
+        headers: await getAuthHeaders(),
+      });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body.error ?? "Failed to delete post");

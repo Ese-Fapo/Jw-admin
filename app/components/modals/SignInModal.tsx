@@ -8,6 +8,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 export default function SignInModal() {
   const { isOpen, closeSignIn } = useModalStore();
@@ -20,12 +21,17 @@ export default function SignInModal() {
     try {
       setLoadingProvider("google");
       setError(null);
-      await authClient.signIn.social({ provider: "google" });
-      router.push("/admin");
+      const result = await authClient.signIn.social({ provider: "google" });
+      const name = (result as { displayName?: string } | null)?.displayName;
+      toast.success(`Welcome${name ? `, ${name.split(" ")[0]}` : ""}! You are signed in.`, {
+        duration: 4000,
+        icon: "👋",
+      });
       closeSignIn();
+      router.push("/admin");
     } catch (err) {
       console.error("Google sign in error:", err);
-      setError("Falha ao fazer login com Google. Tente novamente.");
+      setError("Failed to sign in with Google. Please try again.");
     } finally {
       setLoadingProvider(null);
     }
@@ -35,10 +41,11 @@ export default function SignInModal() {
     try {
       setLoadingProvider("logout");
       await signOut();
+      toast("Signed out successfully.", { icon: "👋" });
       closeSignIn();
     } catch (err) {
       console.error("Logout error:", err);
-      setError("Falha ao fazer logout. Tente novamente.");
+      setError("Failed to sign out. Please try again.");
     } finally {
       setLoadingProvider(null);
     }
