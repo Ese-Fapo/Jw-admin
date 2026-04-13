@@ -1,4 +1,4 @@
-import { getFirebaseAdminAuth, getFirebaseAdminDb } from "@/lib/firebase-admin";
+import { getFirebaseAdminAuth, getFirebaseAdminDb, isFirebaseAdminConfigured } from "@/lib/firebase-admin";
 import type { UserRole } from "@/lib/domain-types";
 import { NextRequest } from "next/server";
 
@@ -21,6 +21,10 @@ function resolveToken(input?: string | NextRequest) {
 }
 
 export async function getSessionUser(input?: string | NextRequest) {
+  if (!isFirebaseAdminConfigured()) {
+    return null;
+  }
+
   const token = resolveToken(input);
   if (!token) {
     return null;
@@ -39,6 +43,7 @@ export async function getSessionUser(input?: string | NextRequest) {
     const existing = (userSnap.exists ? userSnap.data() : null) as {
       role?: UserRole;
       createdAt?: number;
+      updatedAt?: number;
     } | null;
 
     const role: UserRole = isAdminEmail || existing?.role === "ADMIN" ? "ADMIN" : "USER";
@@ -54,7 +59,18 @@ export async function getSessionUser(input?: string | NextRequest) {
       updatedAt: now,
     };
 
-    await userRef.set(syncedUser, { merge: true });
+    const needsSync =
+      !existing ||
+      existing.role !== syncedUser.role ||
+      (userSnap.data()?.email as string | undefined) !== syncedUser.email ||
+      (userSnap.data()?.name as string | undefined) !== syncedUser.name ||
+      (userSnap.data()?.image as string | null | undefined) !== syncedUser.image ||
+      (userSnap.data()?.emailVerified as boolean | undefined) !== syncedUser.emailVerified ||
+      now - Number(existing.updatedAt ?? 0) > 60 * 60 * 1000;
+
+    if (needsSync) {
+      await userRef.set(syncedUser, { merge: true });
+    }
 
     return {
       id: syncedUser.id,

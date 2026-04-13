@@ -65,6 +65,7 @@ export default function SignInModal() {
           <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
             <div className="flex items-center gap-3">
               {user.image && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img 
                   src={user.image} 
                   alt={user.name ?? "User avatar"}

@@ -64,7 +64,7 @@ export default function AdminWorkbookControl({ sectionOptions }: { sectionOption
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSavingAll, setIsSavingAll] = useState(false);
   const [isCreatingPart, setIsCreatingPart] = useState(false);
-  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [, setGlobalError] = useState<string | null>(null);
   const [newPart, setNewPart] = useState<NewPartForm>({
     section: sectionOptions[0]?.value ?? "OPENING",
     partTitle: "",

@@ -1,6 +1,25 @@
 import * as admin from "firebase-admin";
 
 let adminApp: admin.app.App | null = null;
+let hasLoggedInitError = false;
+
+function isPlaceholderServiceKey(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return (
+    !normalized ||
+    normalized.includes("replace-with-your-firebase-service-account-json") ||
+    normalized.includes("your-service-account-json")
+  );
+}
+
+export function isFirebaseAdminConfigured() {
+  const key = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (!key || isPlaceholderServiceKey(key)) return false;
+
+  const bucket =
+    process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  return Boolean(bucket && process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+}
 
 function parseServiceAccount(serviceAccountKey: string) {
   const normalized = serviceAccountKey.trim();
@@ -18,7 +37,7 @@ function parseServiceAccount(serviceAccountKey: string) {
   }
 
   try {
-    const decoded = Buffer.from(normalized, "base64").toString("utf8");
+    const decoded = Buffer.from(normalized, "base64").toString("utf8").trim();
     if (decoded.startsWith("{")) {
       return parseJson(decoded);
     }
@@ -33,9 +52,9 @@ function getFirebaseAdminApp(): admin.app.App {
   if (adminApp) return adminApp;
 
   const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!serviceAccountKey) {
+  if (!serviceAccountKey || isPlaceholderServiceKey(serviceAccountKey)) {
     throw new Error(
-      "FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set"
+      "FIREBASE_SERVICE_ACCOUNT_KEY is missing or still set to a placeholder value"
     );
   }
 
@@ -49,7 +68,10 @@ function getFirebaseAdminApp(): admin.app.App {
         process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     });
   } catch (error) {
-    console.error("Failed to initialize Firebase Admin SDK:", error);
+    if (!hasLoggedInitError) {
+      console.error("Failed to initialize Firebase Admin SDK:", error);
+      hasLoggedInitError = true;
+    }
     throw error;
   }
 

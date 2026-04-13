@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Ensure slug is unique by appending counter if necessary
-    let baseSlug = slug;
+    const baseSlug = slug;
     let counter = 1;
     const db = await getFirebaseAdminDb();
 

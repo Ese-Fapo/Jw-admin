@@ -4,20 +4,12 @@ import { getFirebaseAdminDb } from "@/lib/firebase-admin";
 import { nowMs, weekKeyFromInput } from "@/lib/firestore-data";
 import { requireAdmin } from "@/lib/auth-guards";
 
-function hasConfiguredDatabase() {
-  return Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-}
-
 function parseWeekDate(value: string | null) {
   return weekKeyFromInput(value);
 }
 
 export async function GET(request: NextRequest) {
   try {
-    if (!hasConfiguredDatabase()) {
-      return NextResponse.json({ assignments: [], warning: "Database is not configured" });
-    }
-
     const week = parseWeekDate(request.nextUrl.searchParams.get("week"));
     const start = parseWeekDate(request.nextUrl.searchParams.get("start"));
     const end = parseWeekDate(request.nextUrl.searchParams.get("end"));

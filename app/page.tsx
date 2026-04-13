@@ -54,10 +54,6 @@ function startOfWeek(date: Date) {
   return result;
 }
 
-function hasConfiguredDatabase() {
-  return Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-}
-
 export default async function HomePage() {
   const weekOf = startOfWeek(new Date());
   const weekKey = weekKeyFromDate(weekOf);
@@ -71,36 +67,32 @@ export default async function HomePage() {
     notes: string | null;
     position: number;
   }[] = [];
-  let dbUnavailable = !hasConfiguredDatabase();
 
-  if (!dbUnavailable) {
-    try {
-      const db = await getFirebaseAdminDb();
-      const snapshot = await db
-        .collection("workbookAssignments")
-        .where("weekOf", "==", weekKey)
-        .get();
+  try {
+    const db = await getFirebaseAdminDb();
+    const snapshot = await db
+      .collection("workbookAssignments")
+      .where("weekOf", "==", weekKey)
+      .get();
 
-      assignments = snapshot.docs
-        .map((doc) => doc.data())
-        .map((row) => ({
-          id: String(row.id),
-          section: row.section as WorkbookSection,
-          partTitle: String(row.partTitle ?? ""),
-          personName: String(row.personName ?? "To be assigned"),
-          assistantName: (row.assistantName as string | null | undefined) ?? null,
-          notes: (row.notes as string | null | undefined) ?? null,
-          position: Number(row.position ?? 0),
-        }))
-        .sort((a, b) => {
-          if (a.section < b.section) return -1;
-          if (a.section > b.section) return 1;
-          return a.position - b.position;
-        });
-    } catch (error) {
-      dbUnavailable = true;
-      console.error("Workbook data unavailable:", error);
-    }
+    assignments = snapshot.docs
+      .map((doc) => doc.data())
+      .map((row) => ({
+        id: String(row.id),
+        section: row.section as WorkbookSection,
+        partTitle: String(row.partTitle ?? ""),
+        personName: String(row.personName ?? "To be assigned"),
+        assistantName: (row.assistantName as string | null | undefined) ?? null,
+        notes: (row.notes as string | null | undefined) ?? null,
+        position: Number(row.position ?? 0),
+      }))
+      .sort((a, b) => {
+        if (a.section < b.section) return -1;
+        if (a.section > b.section) return 1;
+        return a.position - b.position;
+      });
+  } catch (error) {
+    console.error("Workbook data unavailable:", error);
   }
 
   const grouped = assignments.reduce<Record<WorkbookSection, typeof assignments>>(
@@ -208,13 +200,6 @@ export default async function HomePage() {
           </div>
           
         </header>
-
-        {dbUnavailable && (
-          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            <strong>Database unavailable.</strong> Showing template placeholder data — no assignments are loaded.
-            Connect your database and refresh to see live data.
-          </div>
-        )}
 
         <div className="space-y-4">
           {(Object.keys(workbookSectionLabels) as WorkbookSection[]).map((section) => {

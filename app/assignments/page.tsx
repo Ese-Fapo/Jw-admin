@@ -1,5 +1,5 @@
 import type { ServiceAssignmentCategory } from "@/lib/domain-types";
-import { getFirebaseAdminDb } from "@/lib/firebase-admin";
+import { getFirebaseAdminDb, isFirebaseAdminConfigured } from "@/lib/firebase-admin";
 import { weekKeyFromDate } from "@/lib/firestore-data";
 import { defaultCongregationAssignments, serviceCategoryLabels } from "@/lib/ministry-schedule";
 
@@ -20,7 +20,7 @@ function startOfWeek(date: Date) {
 }
 
 function hasConfiguredDatabase() {
-  return Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+  return isFirebaseAdminConfigured();
 }
 
 export default async function AssignmentsPage() {
