@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { uploadToCloudinary } from '@/app/services/cloudinary';
+import { getFirebaseAdminDb } from '@/lib/firebase-admin';
+import { uploadToFirebaseStorage } from '@/app/services/firebase-storage';
 import { getSessionUser } from '@/lib/auth-guards';
+import { nowMs, postToApi } from '@/lib/firestore-data';
+import type { PostRecord } from '@/lib/firestore-data';
 
 /**
  * GET /api/posts/[slug]
@@ -19,9 +21,9 @@ export async function GET(
     const { slug } = await params;
 
     // Query the database for a post with the matching slug
-    const post = await prisma.post.findUnique({
-      where: { slug },
-    });
+    const db = await getFirebaseAdminDb();
+    const snap = await db.collection("posts").where("slug", "==", slug).limit(1).get();
+    const post = snap.empty ? null : snap.docs[0].data();
 
     // Return 404 if the post doesn't exist
     if (!post) {
@@ -32,7 +34,7 @@ export async function GET(
     }
 
     // Return the post data as JSON
-    return NextResponse.json(post);
+    return NextResponse.json(postToApi(post as PostRecord));
   } catch (error) {
     // Log the error for debugging purposes
     console.error('Error fetching post:', error);
@@ -70,10 +72,9 @@ export async function PUT(
     const { slug } = await params;
 
     // Check if post exists and verify ownership
-    const existingPost = await prisma.post.findUnique({
-      where: { slug },
-      select: { authorId: true },
-    });
+    const db = await getFirebaseAdminDb();
+    const existingPostSnap = await db.collection("posts").where("slug", "==", slug).limit(1).get();
+    const existingPost = existingPostSnap.empty ? null : existingPostSnap.docs[0];
 
     if (!existingPost) {
       return NextResponse.json(
@@ -82,7 +83,7 @@ export async function PUT(
       );
     }
 
-    if (existingPost.authorId !== sessionUser.id) {
+    if (existingPost.data().authorId !== sessionUser.id) {
       return NextResponse.json(
         { error: 'Você não tem permissão para editar este artigo' },
         { status: 403 }
@@ -124,7 +125,7 @@ export async function PUT(
     if (excerpt !== null) updateData.excerpt = excerpt;
 
     if (coverImage) {
-      const imageData = await uploadToCloudinary(coverImage);
+      const imageData = await uploadToFirebaseStorage(coverImage);
       updateData.coverImageURL = imageData.secure_url;
       updateData.coverImagePublicId = imageData.public_id;
     } else {
@@ -133,13 +134,13 @@ export async function PUT(
     }
 
     // Update the post in the database with new data
-    const post = await prisma.post.update({
-      where: { slug },
-      data: updateData,
-    });
+    updateData.updatedAt = nowMs();
+
+    await existingPost.ref.set(updateData, { merge: true });
+    const post = { ...existingPost.data(), ...updateData };
 
     // Return the updated post data
-    return NextResponse.json(post);
+    return NextResponse.json(postToApi(post as Parameters<typeof postToApi>[0]));
   } catch (error) {
     // Log the error for debugging purposes
     console.error('Error updating post:', error);
@@ -177,10 +178,9 @@ export async function DELETE(
     const { slug } = await params;
 
     // Check if post exists and verify ownership
-    const existingPost = await prisma.post.findUnique({
-      where: { slug },
-      select: { authorId: true },
-    });
+    const db = await getFirebaseAdminDb();
+    const existingPostSnap = await db.collection("posts").where("slug", "==", slug).limit(1).get();
+    const existingPost = existingPostSnap.empty ? null : existingPostSnap.docs[0];
 
     if (!existingPost) {
       return NextResponse.json(
@@ -189,7 +189,7 @@ export async function DELETE(
       );
     }
 
-    if (existingPost.authorId !== sessionUser.id) {
+    if (existingPost.data().authorId !== sessionUser.id) {
       return NextResponse.json(
         { error: 'Você não tem permissão para excluir este artigo' },
         { status: 403 }
@@ -197,9 +197,7 @@ export async function DELETE(
     }
 
     // Delete the post from the database
-    await prisma.post.delete({
-      where: { slug },
-    });
+    await existingPost.ref.delete();
 
     // Return success message
     return NextResponse.json({ message: 'Post deleted successfully' });

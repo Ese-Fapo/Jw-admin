@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import { ServiceAssignmentCategory } from "@prisma/client";
+import type { ServiceAssignmentCategory } from "@/lib/domain-types";
 import { serviceCategoryLabels } from "@/lib/ministry-schedule";
 import { auth } from "@/lib/firebase";
 

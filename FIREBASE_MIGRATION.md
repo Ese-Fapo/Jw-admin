@@ -1,6 +1,6 @@
 # Firebase Migration Guide
 
-This project has been migrated from NextAuth to Firebase Authentication and Firestore Database.
+This project has been migrated to Firebase Authentication and Firestore.
 
 ## What Changed
 
@@ -62,35 +62,19 @@ FIREBASE_DATABASE_URL=https://your_project_id.firebaseio.com
 # Admin Emails (comma-separated) - users with these emails will be admins
 NEXT_PUBLIC_ADMIN_EMAILS=admin@example.com,admin2@example.com
 
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/jw_admin
-
-# Other Configuration
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloudinary_name
+# Optional server-side storage bucket override
+FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 ```
 
-### 4. Update Prisma Schema
+### 4. Create Firestore Collections
 
-Add the following users collection to Firestore (if using Prisma with Firebase):
+Create the initial collections in Firestore:
 
-```prisma
-model User {
-  id            String    @id
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  role          UserRole  @default(USER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  posts                Post[]
-  assignments          WorkbookAssignment[]
-  serviceAssignments   ServiceAssignment[]
-
-  @@map("user")
-}
-```
+- `users`
+- `posts`
+- `workbookAssignments`
+- `serviceAssignments`
+- `adminSignInHistory`
 
 ### 5. Cleanup Status
 
@@ -180,36 +164,9 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
 }
 ```
 
-## Database Migration
+## Data Initialization
 
-### From PostgreSQL to Firestore
-
-If migrating data:
-
-1. Export user data from PostgreSQL
-2. Use Firebase Admin SDK to write data to Firestore
-3. Ensure user IDs match Firebase UIDs
-
-Example migration script:
-```typescript
-import { db } from "@/lib/firebase";
-import { prisma } from "@/lib/prisma";
-
-async function migrateUsers() {
-  const users = await prisma.user.findMany();
-
-  for (const user of users) {
-    await db.collection("users").doc(user.id).set({
-      email: user.email,
-      name: user.name,
-      image: user.image,
-      role: user.role,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    });
-  }
-}
-```
+For new environments, seed Firestore using Firebase Admin SDK scripts or API routes in this repo.
 
 ## Security Rules for Firestore
 

@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { WorkbookSection } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { WORKBOOK_SECTIONS, isWorkbookSection } from "@/lib/domain-types";
+import { getFirebaseAdminDb } from "@/lib/firebase-admin";
+import { nowMs, weekKeyFromInput } from "@/lib/firestore-data";
 import { requireAdmin } from "@/lib/auth-guards";
 
 function hasConfiguredDatabase() {
-  const databaseUrl = process.env.DATABASE_URL ?? "";
-  if (!databaseUrl) return false;
-  return !["USER", "PASSWORD", "HOST", "DATABASE"].some((token) =>
-    databaseUrl.includes(token)
-  );
+  return Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 }
 
 function parseWeekDate(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  date.setHours(0, 0, 0, 0);
-  return date;
+  return weekKeyFromInput(value);
 }
 
 export async function GET(request: NextRequest) {
@@ -29,26 +22,32 @@ export async function GET(request: NextRequest) {
     const start = parseWeekDate(request.nextUrl.searchParams.get("start"));
     const end = parseWeekDate(request.nextUrl.searchParams.get("end"));
 
-    const where = week
-      ? { weekOf: week }
+    const db = await getFirebaseAdminDb();
+    const query = week
+      ? db.collection("workbookAssignments").where("weekOf", "==", week)
       : start && end
-        ? { weekOf: { gte: start, lte: end } }
-        : undefined;
+        ? db.collection("workbookAssignments").where("weekOf", ">=", start).where("weekOf", "<=", end)
+        : db.collection("workbookAssignments");
 
-    const assignments = await prisma.workbookAssignment.findMany({
-      where,
-      orderBy: [{ weekOf: "asc" }, { section: "asc" }, { position: "asc" }],
-      select: {
-        id: true,
-        weekOf: true,
-        section: true,
-        partTitle: true,
-        personName: true,
-        assistantName: true,
-        position: true,
-        notes: true,
-      },
-    });
+    const assignments = (await query.get()).docs
+      .map((doc) => doc.data())
+      .map((row) => ({
+        id: String(row.id),
+        weekOf: String(row.weekOf),
+        section: String(row.section),
+        partTitle: String(row.partTitle ?? ""),
+        personName: String(row.personName ?? "To be assigned"),
+        assistantName: (row.assistantName as string | null | undefined) ?? null,
+        position: Number(row.position ?? 0),
+        notes: (row.notes as string | null | undefined) ?? null,
+      }))
+      .sort((a, b) => {
+        if (a.weekOf < b.weekOf) return -1;
+        if (a.weekOf > b.weekOf) return 1;
+        const sec = WORKBOOK_SECTIONS.indexOf(a.section as (typeof WORKBOOK_SECTIONS)[number]) - WORKBOOK_SECTIONS.indexOf(b.section as (typeof WORKBOOK_SECTIONS)[number]);
+        if (sec !== 0) return sec;
+        return a.position - b.position;
+      });
 
     return NextResponse.json({ assignments });
   } catch (error) {
@@ -67,7 +66,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const weekOf = parseWeekDate(body.weekOf ?? null);
-    const section = String(body.section ?? "") as WorkbookSection;
+    const section = String(body.section ?? "");
     const partTitle = String(body.partTitle ?? "").trim();
     const personName = String(body.personName ?? "To be assigned").trim() || "To be assigned";
     const assistantName = body.assistantName ? String(body.assistantName).trim() : null;
@@ -78,32 +77,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "weekOf and partTitle are required" }, { status: 400 });
     }
 
-    if (!Object.values(WorkbookSection).includes(section)) {
+    if (!isWorkbookSection(section)) {
       return NextResponse.json({ error: "Invalid section value" }, { status: 400 });
     }
 
     let position = parsedPosition;
     if (!Number.isFinite(position)) {
-      const latestInSection = await prisma.workbookAssignment.findFirst({
-        where: { weekOf, section },
-        orderBy: { position: "desc" },
-        select: { position: true },
-      });
-      position = (latestInSection?.position ?? 0) + 1;
+      const db = await getFirebaseAdminDb();
+      const rows = (await db
+        .collection("workbookAssignments")
+        .where("weekOf", "==", weekOf)
+        .where("section", "==", section)
+        .get()).docs.map((doc) => Number(doc.data().position ?? 0));
+      position = (rows.length ? Math.max(...rows) : 0) + 1;
     }
 
-    const assignment = await prisma.workbookAssignment.create({
-      data: {
-        weekOf,
-        section,
-        partTitle,
-        personName,
-        assistantName,
-        position,
-        notes,
-        createdById: admin.user.id,
-      },
-    });
+    const db = await getFirebaseAdminDb();
+    const docRef = db.collection("workbookAssignments").doc();
+    const assignment = {
+      id: docRef.id,
+      weekOf,
+      section,
+      partTitle,
+      personName,
+      assistantName,
+      position,
+      notes,
+      createdById: admin.user.id,
+      createdAt: nowMs(),
+      updatedAt: nowMs(),
+    };
+    await docRef.set(assignment);
 
     return NextResponse.json(assignment, { status: 201 });
   } catch (error) {

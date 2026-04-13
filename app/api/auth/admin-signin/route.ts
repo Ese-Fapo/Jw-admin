@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getFirebaseAdminDb } from "@/lib/firebase-admin";
+import { nowMs } from "@/lib/firestore-data";
 import { getSessionUser } from "@/lib/auth-guards";
 
 export async function POST(request: NextRequest) {
@@ -16,12 +17,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const method = String(body.method ?? "unknown").slice(0, 40);
 
-    await prisma.adminSignInHistory.create({
-      data: {
-        adminUserId: user.id,
-        adminEmail: user.email || "unknown",
-        method,
-      },
+    const db = await getFirebaseAdminDb();
+    const ref = db.collection("adminSignInHistory").doc();
+    await ref.set({
+      id: ref.id,
+      adminUserId: user.id,
+      adminEmail: user.email || "unknown",
+      method,
+      createdAt: nowMs(),
     });
 
     return NextResponse.json({ ok: true });

@@ -3,9 +3,8 @@
 ## Prerequisites
 
 1. **GitHub Account** - Connected to Vercel
-2. **PostgreSQL Database** - (Prisma Postgres recommended)
-3. **Firebase Project** - Auth + Firestore configured
-4. **Environment Variables** - Firebase, database, and Cloudinary values
+2. **Firebase Project** - Auth + Firestore configured
+3. **Environment Variables** - Firebase values (Auth, Firestore, Storage)
 
 ## Deployment Steps
 
@@ -18,9 +17,6 @@ cp .env.example .env.local
 ### 2. Vercel Environment Variables
 
 Go to your Vercel project settings and add these environment variables:
-
-**Database:**
-- `DATABASE_URL` - Your PostgreSQL connection string with SSL enabled
 
 **Firebase Client:**
 - `NEXT_PUBLIC_FIREBASE_API_KEY`
@@ -36,10 +32,9 @@ Go to your Vercel project settings and add these environment variables:
 - `FIREBASE_DATABASE_URL` - Realtime DB URL / project URL used by admin SDK
 - `NEXT_PUBLIC_ADMIN_EMAILS` - Optional comma-separated admin allowlist
 
-**Cloudinary (if using image uploads):**
-- `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` - Your Cloudinary account
-- `CLOUDINARY_API_KEY` - Your Cloudinary API key
-- `CLOUDINARY_API_SECRET` - Your Cloudinary API secret
+**Firebase Storage:**
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` - Firebase storage bucket
+- `FIREBASE_STORAGE_BUCKET` - Optional server-side override
 
 ### 3. Update Firebase Auth Settings
 
@@ -54,22 +49,14 @@ In Firebase Console:
 
 The build command is already configured in `package.json`:
 ```json
-"build": "prisma generate && next build"
+"build": "next build"
 ```
 
-This generates Prisma Client before building.
+No ORM generation step is required.
 
-### 5. Prisma Migrations
+### 5. Firestore Readiness
 
-Run migrations on your production database:
-
-```bash
-# Connect to your production database via Vercel CLI
-vercel env pull .env.production.local
-
-# Run migrations
-npx prisma migrate deploy
-```
+Ensure required Firestore collections and indexes are in place before first production traffic.
 
 ### 6. Deploy
 
@@ -85,14 +72,8 @@ vercel
 
 ## Troubleshooting
 
-### Build Fails: "DATABASE_URL not found"
-- **Solution:** Check that DATABASE_URL is set in Vercel environment variables
-
 ### Firebase Sign-in Popup Fails
 - **Solution:** Add your Vercel domain to Firebase Authorized Domains and verify Google auth is enabled
-
-### Database Migrations Failed
-- **Solution:** Run `npx prisma migrate deploy` after environment variables are set
 
 ## Security Checklist
 
@@ -101,7 +82,6 @@ vercel
 ✅ Credentials are only in Vercel environment variables
 ✅ Firebase authorized domains include your production domain
 ✅ `FIREBASE_SERVICE_ACCOUNT_KEY` is set only on the server
-✅ Database URL uses SSL connection
 
 ## Monitoring
 
@@ -113,4 +93,4 @@ vercel
 
 - [Vercel Documentation](https://vercel.com/docs)
 - [Next.js Deployment](https://nextjs.org/learn-pages-router/basics/deploying-nextjs-app)
-- [Prisma Deployment](https://www.prisma.io/docs/orm/deploy)
+- [Firebase Deployment Guide](https://firebase.google.com/docs)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-guards";
-import { prisma } from "@/lib/prisma";
+import { getFirebaseAdminDb } from "@/lib/firebase-admin";
+import { toIsoDateTime } from "@/lib/firestore-data";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,17 +10,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: admin.message }, { status: admin.status });
     }
 
-    const history = await prisma.adminSignInHistory.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 200,
-      select: {
-        id: true,
-        adminUserId: true,
-        adminEmail: true,
-        method: true,
-        createdAt: true,
-      },
-    });
+    const db = await getFirebaseAdminDb();
+    const history = (await db.collection("adminSignInHistory").get()).docs
+      .map((doc) => doc.data())
+      .map((row) => ({
+        id: String(row.id),
+        adminUserId: String(row.adminUserId),
+        adminEmail: String(row.adminEmail),
+        method: String(row.method),
+        createdAt: toIsoDateTime(row.createdAt),
+      }))
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .slice(0, 200);
 
     return NextResponse.json({ history });
   } catch (error) {

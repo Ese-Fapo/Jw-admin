@@ -1,5 +1,5 @@
-import { ServiceAssignmentCategory } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { getFirebaseAdminDb } from "@/lib/firebase-admin";
+import { weekKeyFromDate } from "@/lib/firestore-data";
 import { defaultCartSchedule } from "@/lib/ministry-schedule";
 
 function startOfWeek(date: Date) {
@@ -12,36 +12,35 @@ function startOfWeek(date: Date) {
 }
 
 function hasConfiguredDatabase() {
-  const databaseUrl = process.env.DATABASE_URL ?? "";
-
-  if (!databaseUrl) return false;
-
-  return !["USER", "PASSWORD", "HOST", "DATABASE"].some((token) =>
-    databaseUrl.includes(token)
-  );
+  return Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 }
 
 export default async function CartSchedulePage() {
   const weekOf = startOfWeek(new Date());
+  const weekKey = weekKeyFromDate(weekOf);
 
   let dbUnavailable = !hasConfiguredDatabase();
   let rows = defaultCartSchedule;
 
   if (!dbUnavailable) {
     try {
-      const dbRows = await prisma.serviceAssignment.findMany({
-        where: { weekOf, category: ServiceAssignmentCategory.CART },
-        orderBy: [{ position: "asc" }],
-        select: {
-          title: true,
-          assigneeName: true,
-          assistantName: true,
-          dayLabel: true,
-          timeLabel: true,
-          notes: true,
-          position: true,
-        },
-      });
+      const db = await getFirebaseAdminDb();
+      const dbRows = (await db
+        .collection("serviceAssignments")
+        .where("weekOf", "==", weekKey)
+        .where("category", "==", "CART")
+        .get()).docs
+        .map((doc) => doc.data())
+        .map((row) => ({
+          title: String(row.title ?? ""),
+          assigneeName: String(row.assigneeName ?? "To be assigned"),
+          assistantName: (row.assistantName as string | null | undefined) ?? null,
+          dayLabel: String(row.dayLabel ?? "—"),
+          timeLabel: String(row.timeLabel ?? "—"),
+          notes: (row.notes as string | null | undefined) ?? null,
+          position: Number(row.position ?? 0),
+        }))
+        .sort((a, b) => a.position - b.position);
 
       if (dbRows.length > 0) {
         rows = dbRows.map((row) => ({

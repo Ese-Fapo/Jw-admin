@@ -1,6 +1,6 @@
 import * as admin from "firebase-admin";
 
-let adminApp: admin.app.App;
+let adminApp: admin.app.App | null = null;
 
 function parseServiceAccount(serviceAccountKey: string) {
   const normalized = serviceAccountKey.trim();
@@ -29,10 +29,8 @@ function parseServiceAccount(serviceAccountKey: string) {
   throw new Error("Invalid FIREBASE_SERVICE_ACCOUNT_KEY format. Use raw JSON string or base64-encoded JSON.");
 }
 
-export async function getFirebaseAdminAuth(): Promise<admin.auth.Auth> {
-  if (adminApp) {
-    return admin.auth(adminApp);
-  }
+function getFirebaseAdminApp(): admin.app.App {
+  if (adminApp) return adminApp;
 
   const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (!serviceAccountKey) {
@@ -46,13 +44,28 @@ export async function getFirebaseAdminAuth(): Promise<admin.auth.Auth> {
     adminApp = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
       databaseURL: process.env.FIREBASE_DATABASE_URL,
+      storageBucket:
+        process.env.FIREBASE_STORAGE_BUCKET ||
+        process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     });
   } catch (error) {
     console.error("Failed to initialize Firebase Admin SDK:", error);
     throw error;
   }
 
-  return admin.auth(adminApp);
+  return adminApp;
+}
+
+export async function getFirebaseAdminAuth(): Promise<admin.auth.Auth> {
+  return admin.auth(getFirebaseAdminApp());
+}
+
+export async function getFirebaseAdminDb(): Promise<admin.firestore.Firestore> {
+  return admin.firestore(getFirebaseAdminApp());
+}
+
+export async function getFirebaseAdminStorage(): Promise<admin.storage.Storage> {
+  return admin.storage(getFirebaseAdminApp());
 }
 
 export async function getFirebaseApiKey(): Promise<string> {

@@ -1,4 +1,4 @@
-import type { WorkbookSection } from "@prisma/client";
+import type { WorkbookSection } from "@/lib/domain-types";
 
 export type WorkbookTemplateItem = {
   section: WorkbookSection;

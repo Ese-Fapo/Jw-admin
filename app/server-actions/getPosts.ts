@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { getFirebaseAdminDb } from "@/lib/firebase-admin";
 
 interface PostWithAuthor {
   id: string;
@@ -8,8 +8,8 @@ interface PostWithAuthor {
   excerpt: string | null;
   content: string;
   slug: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   coverImageURL: string | null;
   author: {
     id: string;
@@ -24,26 +24,28 @@ export async function getPostsBySlug(slug: string): Promise<PostWithAuthor | nul
       throw new Error("Valid slug is required");
     }
 
-    const post = await prisma.post.findUnique({
-      where: { slug },
-      select: {
-        id: true,
-        title: true,
-        excerpt: true,
-        content: true,
-        slug: true,
-        createdAt: true,
-        updatedAt: true,
-        coverImageURL: true,
-        author: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-      },
-    });
+    const db = await getFirebaseAdminDb();
+    const snap = await db.collection("posts").where("slug", "==", slug).limit(1).get();
+    const post = snap.empty
+      ? null
+      : (() => {
+          const row = snap.docs[0].data();
+          return {
+            id: String(row.id),
+            title: String(row.title),
+            excerpt: (row.excerpt as string | null | undefined) ?? null,
+            content: String(row.content ?? ""),
+            slug: String(row.slug),
+            createdAt: new Date(Number(row.createdAt ?? 0)).toISOString(),
+            updatedAt: new Date(Number(row.updatedAt ?? 0)).toISOString(),
+            coverImageURL: (row.coverImageURL as string | null | undefined) ?? null,
+            author: {
+              id: String(row.authorId ?? ""),
+              name: (row.authorName as string | null | undefined) ?? null,
+              image: (row.authorImage as string | null | undefined) ?? null,
+            },
+          };
+        })();
 
     if (!post) {
       return null;
@@ -58,28 +60,25 @@ export async function getPostsBySlug(slug: string): Promise<PostWithAuthor | nul
 
 export async function getAllPosts(): Promise<PostWithAuthor[]> {
   try {
-    const posts = await prisma.post.findMany({
-      select: {
-        id: true,
-        title: true,
-        excerpt: true,
-        content: true,
-        slug: true,
-        createdAt: true,
-        updatedAt: true,
-        coverImageURL: true,
+    const db = await getFirebaseAdminDb();
+    const posts = (await db.collection("posts").get()).docs
+      .map((doc) => doc.data())
+      .sort((a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
+      .map((row) => ({
+        id: String(row.id),
+        title: String(row.title),
+        excerpt: (row.excerpt as string | null | undefined) ?? null,
+        content: String(row.content ?? ""),
+        slug: String(row.slug),
+        createdAt: new Date(Number(row.createdAt ?? 0)).toISOString(),
+        updatedAt: new Date(Number(row.updatedAt ?? 0)).toISOString(),
+        coverImageURL: (row.coverImageURL as string | null | undefined) ?? null,
         author: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
+          id: String(row.authorId ?? ""),
+          name: (row.authorName as string | null | undefined) ?? null,
+          image: (row.authorImage as string | null | undefined) ?? null,
         },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+      }));
 
     return posts;
   } catch (error) {
@@ -94,29 +93,26 @@ export async function getRecentPosts(limit: number = 5): Promise<PostWithAuthor[
       throw new Error("Limit must be greater than 0");
     }
 
-    const posts = await prisma.post.findMany({
-      select: {
-        id: true,
-        title: true,
-        excerpt: true,
-        content: true,
-        slug: true,
-        createdAt: true,
-        updatedAt: true,
-        coverImageURL: true,
+    const db = await getFirebaseAdminDb();
+    const posts = (await db.collection("posts").get()).docs
+      .map((doc) => doc.data())
+      .sort((a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
+      .slice(0, limit)
+      .map((row) => ({
+        id: String(row.id),
+        title: String(row.title),
+        excerpt: (row.excerpt as string | null | undefined) ?? null,
+        content: String(row.content ?? ""),
+        slug: String(row.slug),
+        createdAt: new Date(Number(row.createdAt ?? 0)).toISOString(),
+        updatedAt: new Date(Number(row.updatedAt ?? 0)).toISOString(),
+        coverImageURL: (row.coverImageURL as string | null | undefined) ?? null,
         author: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
+          id: String(row.authorId ?? ""),
+          name: (row.authorName as string | null | undefined) ?? null,
+          image: (row.authorImage as string | null | undefined) ?? null,
         },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: limit,
-    });
+      }));
 
     return posts;
   } catch (error) {

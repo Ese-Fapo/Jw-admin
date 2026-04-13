@@ -20,7 +20,6 @@ FIREBASE_SERVICE_ACCOUNT_KEY="{...your-service-account-json...}"
 FIREBASE_DATABASE_URL="https://your-project-id.firebaseio.com"
 
 NEXT_PUBLIC_ADMIN_EMAILS="admin@example.com"
-DATABASE_URL="your-postgresql-url"
 ```
 
 ### 2. Create a Firebase Project

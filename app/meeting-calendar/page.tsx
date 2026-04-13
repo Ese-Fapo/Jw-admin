@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { WorkbookSection } from "@prisma/client";
+import type { WorkbookSection } from "@/lib/domain-types";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { workbookSectionLabels, workbookSectionOptions } from "@/lib/workbook-template";
 import AdminWorkbookControl from "@/app/admin/workbook-control";

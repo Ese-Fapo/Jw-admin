@@ -6,8 +6,8 @@ export default function AboutPage() {
     'Next.js App Router frontend',
     'API routes for post CRUD + search',
     'Better Auth social login',
-    'Prisma + PostgreSQL data layer',
-    'Cloudinary image uploads',
+    'Firebase Auth + Firestore data layer',
+    'Firebase Storage image uploads',
     'React Query for client data fetching',
   ]
 

@@ -1,5 +1,6 @@
-import { ServiceAssignmentCategory } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import type { ServiceAssignmentCategory } from "@/lib/domain-types";
+import { getFirebaseAdminDb } from "@/lib/firebase-admin";
+import { weekKeyFromDate } from "@/lib/firestore-data";
 import { defaultCongregationAssignments, serviceCategoryLabels } from "@/lib/ministry-schedule";
 
 const categoryBadgeStyles: Record<ServiceAssignmentCategory, string> = {
@@ -19,44 +20,38 @@ function startOfWeek(date: Date) {
 }
 
 function hasConfiguredDatabase() {
-  const databaseUrl = process.env.DATABASE_URL ?? "";
-
-  if (!databaseUrl) return false;
-
-  return !["USER", "PASSWORD", "HOST", "DATABASE"].some((token) =>
-    databaseUrl.includes(token)
-  );
+  return Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 }
 
 export default async function AssignmentsPage() {
   const weekOf = startOfWeek(new Date());
+  const weekKey = weekKeyFromDate(weekOf);
 
   let dbUnavailable = !hasConfiguredDatabase();
   let rows = defaultCongregationAssignments;
 
   if (!dbUnavailable) {
     try {
-      const dbRows = await prisma.serviceAssignment.findMany({
-        where: {
-          weekOf,
-          category: {
-            in: [
-              ServiceAssignmentCategory.CLEANING,
-              ServiceAssignmentCategory.SOUND,
-              ServiceAssignmentCategory.GENERAL_INFO,
-            ],
-          },
-        },
-        orderBy: [{ category: "asc" }, { position: "asc" }],
-        select: {
-          category: true,
-          title: true,
-          assigneeName: true,
-          assistantName: true,
-          notes: true,
-          position: true,
-        },
-      });
+      const db = await getFirebaseAdminDb();
+      const dbRows = (await db
+        .collection("serviceAssignments")
+        .where("weekOf", "==", weekKey)
+        .get()).docs
+        .map((doc) => doc.data())
+        .filter((row) => ["CLEANING", "SOUND", "GENERAL_INFO"].includes(String(row.category)))
+        .map((row) => ({
+          category: row.category as ServiceAssignmentCategory,
+          title: String(row.title ?? ""),
+          assigneeName: String(row.assigneeName ?? "To be assigned"),
+          assistantName: (row.assistantName as string | null | undefined) ?? null,
+          notes: (row.notes as string | null | undefined) ?? null,
+          position: Number(row.position ?? 0),
+        }))
+        .sort((a, b) => {
+          if (a.category < b.category) return -1;
+          if (a.category > b.category) return 1;
+          return a.position - b.position;
+        });
 
       if (dbRows.length > 0) {
         rows = dbRows;

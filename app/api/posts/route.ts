@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getFirebaseAdminDb } from '@/lib/firebase-admin';
 import { getSessionUser } from '@/lib/auth-guards';
 import slugify from 'slugify';
-import { uploadToCloudinary } from '@/app/services/cloudinary';
+import { uploadToFirebaseStorage } from '@/app/services/firebase-storage';
+import { nowMs, postToApi } from '@/lib/firestore-data';
 
 /**
  * POST /api/posts
@@ -48,28 +49,36 @@ export async function POST(request: NextRequest) {
     // Ensure slug is unique by appending counter if necessary
     let baseSlug = slug;
     let counter = 1;
-    while (await prisma.post.findUnique({ where: { slug } })) {
+    const db = await getFirebaseAdminDb();
+
+    while (!(await db.collection("posts").where("slug", "==", slug).limit(1).get()).empty) {
       slug = `${baseSlug}-${counter}`;
       counter++;
     }
 
-    // Upload cover image to Cloudinary
-    const imageData = await uploadToCloudinary(coverImage);
+    // Upload cover image to Firebase Storage
+    const imageData = await uploadToFirebaseStorage(coverImage);
 
     // Create new post in database
-    const newPost = await prisma.post.create({
-      data: {
-        title,
-        content,
-        excerpt,
-        slug,
-        coverImageURL: imageData.secure_url,
-        coverImagePublicId: imageData.public_id,
-        authorId: sessionUser.id,
-      },
-    });
+    const postRef = db.collection("posts").doc();
+    const newPost = {
+      id: postRef.id,
+      title,
+      content,
+      excerpt,
+      slug,
+      coverImageURL: imageData.secure_url,
+      coverImagePublicId: imageData.public_id,
+      authorId: sessionUser.id,
+      authorName: sessionUser.name ?? null,
+      authorImage: sessionUser.image ?? null,
+      createdAt: nowMs(),
+      updatedAt: nowMs(),
+    };
 
-    return NextResponse.json(newPost, { status: 201 });
+    await postRef.set(newPost);
+
+    return NextResponse.json(postToApi(newPost), { status: 201 });
   } catch (error) {
     console.error('Erro ao criar post:', error);
     return NextResponse.json(
@@ -92,32 +101,25 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "9");
     const skip = (page - 1) * limit;
 
-    // Fetch posts with pagination
-    const [posts, totalCount] = await Promise.all([
-      prisma.post.findMany({
-        orderBy: {
-          createdAt: "desc",
-        },
-        select: {
-          id: true,
-          title: true,
-          slug: true,
-          excerpt: true,
-          coverImageURL: true,
-          createdAt: true,
-          author: {
-            select: {
-              id: true,
-              name: true,
-              image: true,
-            },
-          },
-        },
-        skip,
-        take: limit,
-      }),
-      prisma.post.count(),
-    ]);
+    const db = await getFirebaseAdminDb();
+    const allPosts = (await db.collection("posts").get()).docs
+      .map((doc) => doc.data())
+      .sort((a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0));
+
+    const totalCount = allPosts.length;
+    const posts = allPosts.slice(skip, skip + limit).map((row) => ({
+      id: String(row.id),
+      title: String(row.title),
+      slug: String(row.slug),
+      excerpt: (row.excerpt as string | null | undefined) ?? null,
+      coverImageURL: (row.coverImageURL as string | null | undefined) ?? null,
+      createdAt: new Date(Number(row.createdAt ?? 0)).toISOString(),
+      author: {
+        id: String(row.authorId ?? ""),
+        name: (row.authorName as string | null | undefined) ?? null,
+        image: (row.authorImage as string | null | undefined) ?? null,
+      },
+    }));
 
     const hasMore = skip + posts.length < totalCount;
     const nextPage = hasMore ? page + 1 : null;

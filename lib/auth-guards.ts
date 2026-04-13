@@ -1,5 +1,5 @@
-import { getFirebaseAdminAuth, getFirebaseApiKey } from "@/lib/firebase-admin";
-import { prisma } from "@/lib/prisma";
+import { getFirebaseAdminAuth, getFirebaseAdminDb } from "@/lib/firebase-admin";
+import type { UserRole } from "@/lib/domain-types";
 import { NextRequest } from "next/server";
 
 const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || "")
@@ -33,43 +33,35 @@ export async function getSessionUser(input?: string | NextRequest) {
     const normalizedEmail = decodedToken.email?.toLowerCase();
     const isAdminEmail = normalizedEmail ? adminEmails.includes(normalizedEmail) : false;
 
-    const createEmail = decodedToken.email || `${decodedToken.uid}@firebase.local`;
-    const createName = decodedToken.name || decodedToken.email?.split("@")[0] || "User";
+    const db = await getFirebaseAdminDb();
+    const userRef = db.collection("users").doc(decodedToken.uid);
+    const userSnap = await userRef.get();
+    const existing = (userSnap.exists ? userSnap.data() : null) as {
+      role?: UserRole;
+      createdAt?: number;
+    } | null;
 
-    const updateData: {
-      email?: string;
-      name?: string;
-      image?: string | null;
-      emailVerified?: boolean;
-      role?: "ADMIN";
-    } = {};
+    const role: UserRole = isAdminEmail || existing?.role === "ADMIN" ? "ADMIN" : "USER";
+    const now = Date.now();
+    const syncedUser = {
+      id: decodedToken.uid,
+      email: decodedToken.email || `${decodedToken.uid}@firebase.local`,
+      name: decodedToken.name || decodedToken.email?.split("@")[0] || "User",
+      image: decodedToken.picture ?? null,
+      emailVerified: !!decodedToken.email_verified,
+      role,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
 
-    if (decodedToken.email) updateData.email = decodedToken.email;
-    if (decodedToken.name) updateData.name = decodedToken.name;
-    if (decodedToken.picture !== undefined) updateData.image = decodedToken.picture ?? null;
-    if (decodedToken.email_verified !== undefined) updateData.emailVerified = !!decodedToken.email_verified;
-    if (isAdminEmail) updateData.role = "ADMIN";
-
-    const dbUser = await prisma.user.upsert({
-      where: { id: decodedToken.uid },
-      create: {
-        id: decodedToken.uid,
-        email: createEmail,
-        name: createName,
-        image: decodedToken.picture || null,
-        emailVerified: !!decodedToken.email_verified,
-        role: isAdminEmail ? "ADMIN" : "USER",
-      },
-      update: updateData,
-      select: { id: true, email: true, name: true, image: true, role: true },
-    });
+    await userRef.set(syncedUser, { merge: true });
 
     return {
-      id: dbUser.id,
-      email: dbUser.email,
-      name: dbUser.name,
-      image: dbUser.image,
-      role: dbUser.role,
+      id: syncedUser.id,
+      email: syncedUser.email,
+      name: syncedUser.name,
+      image: syncedUser.image,
+      role: syncedUser.role,
     };
   } catch (error) {
     console.error("Failed to verify session:", error);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getFirebaseAdminDb } from '@/lib/firebase-admin';
 
 /**
  * GET /api/posts/search
@@ -17,50 +17,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ posts: [] });
     }
 
-    // Search posts by title, content, or excerpt
-    const posts = await prisma.post.findMany({
-      where: {
-        OR: [
-          {
-            title: {
-              contains: query,
-              mode: 'insensitive',
-            },
-          },
-          {
-            content: {
-              contains: query,
-              mode: 'insensitive',
-            },
-          },
-          {
-            excerpt: {
-              contains: query,
-              mode: 'insensitive',
-            },
-          },
-        ],
-      },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        excerpt: true,
-        coverImageURL: true,
-        createdAt: true,
+    const db = await getFirebaseAdminDb();
+    const normalizedQuery = query.trim().toLowerCase();
+
+    const posts = (await db.collection("posts").get()).docs
+      .map((doc) => doc.data())
+      .filter((post) => {
+        const title = String(post.title ?? "").toLowerCase();
+        const content = String(post.content ?? "").toLowerCase();
+        const excerpt = String(post.excerpt ?? "").toLowerCase();
+        return title.includes(normalizedQuery) || content.includes(normalizedQuery) || excerpt.includes(normalizedQuery);
+      })
+      .sort((a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
+      .slice(0, limit)
+      .map((post) => ({
+        id: String(post.id),
+        title: String(post.title),
+        slug: String(post.slug),
+        excerpt: (post.excerpt as string | null | undefined) ?? null,
+        coverImageURL: (post.coverImageURL as string | null | undefined) ?? null,
+        createdAt: new Date(Number(post.createdAt ?? 0)).toISOString(),
         author: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
+          id: String(post.authorId ?? ""),
+          name: (post.authorName as string | null | undefined) ?? null,
+          image: (post.authorImage as string | null | undefined) ?? null,
         },
-      },
-      take: limit,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+      }));
 
     return NextResponse.json({ posts, count: posts.length });
   } catch (error) {

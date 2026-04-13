@@ -2,36 +2,28 @@
 
 ## Database Setup
 
-### Using Prisma 7
+### Using Firebase + Firestore
 
-This project uses Prisma 7, which has a new configuration approach:
+This project uses Firebase Authentication and Firestore.
 
-1. **Database Configuration:**
-   - Database URL is configured in `prisma.config.ts`, not in `schema.prisma`
-   - The `datasource` block in `schema.prisma` only specifies the provider
+1. **Environment Variables:**
+  ```env
+  NEXT_PUBLIC_FIREBASE_API_KEY="..."
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="..."
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID="..."
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="..."
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="..."
+  NEXT_PUBLIC_FIREBASE_APP_ID="..."
+  NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="..."
+  FIREBASE_SERVICE_ACCOUNT_KEY="{...json...}"
+  FIREBASE_DATABASE_URL="https://your-project-id.firebaseio.com"
+  NEXT_PUBLIC_ADMIN_EMAILS="admin@example.com"
+  ```
 
-2. **Environment Variables:**
-   ```env
-   DATABASE_URL="postgres://username:password@host:port/database?sslmode=require"
-   ```
-
-3. **Database Commands:**
-   ```bash
-   # Push schema changes to database
-   npx prisma db push
-
-   # Generate Prisma Client
-   npx prisma generate
-
-   # Open Prisma Studio (database GUI)
-   npx prisma studio
-
-   # Create a migration
-   npx prisma migrate dev --name migration_name
-
-   # Check migration status
-   npx prisma migrate status
-   ```
+2. **Database Workflow:**
+  - Use Firebase Console for Firestore collections and indexes
+  - Use Firebase Admin SDK from server routes for trusted writes
+  - Use Firestore security rules for access control
 
 ## Project Structure Best Practices
 
@@ -55,18 +47,9 @@ app/api/
         └── route.ts       # GET, PUT, DELETE /api/posts/:slug
 ```
 
-### Database Client
+### Database Access
 
-Use the centralized Prisma client from `lib/prisma.ts`:
-
-```typescript
-import { prisma } from '@/lib/prisma';
-
-// Example usage
-const posts = await prisma.post.findMany();
-```
-
-This prevents multiple Prisma client instances in development.
+Use the Firebase data helpers in `lib/firestore-data.ts` and server helpers in `lib/firebase-admin.ts`.
 
 ## Code Style
 
@@ -130,27 +113,24 @@ try {
 
 ## Deployment Checklist
 
-- [ ] Update DATABASE_URL for production
 - [ ] Run `npm run build` to check for errors
-- [ ] Push database schema: `npx prisma db push`
-- [ ] Generate Prisma Client: `npx prisma generate`
+- [ ] Set Firebase/Auth/Storage environment variables on your host
+- [ ] Verify Firebase Authorized Domains include your deployment URL
 - [ ] Set up environment variables on hosting platform
 - [ ] Configure CORS if needed
 - [ ] Test all API endpoints
 
 ## Common Issues
 
-### Prisma Client Not Found
+### Firebase Admin Initialization Fails
 
-```bash
-npx prisma generate
-```
+- Ensure `FIREBASE_SERVICE_ACCOUNT_KEY` is valid JSON or base64 JSON
+- Ensure `FIREBASE_DATABASE_URL` is set
 
-### Database Connection Issues
+### Firestore Permission Issues
 
-- Check DATABASE_URL format
-- Verify database is accessible
-- Check firewall/security group settings
+- Verify Firestore security rules
+- Verify authenticated user token and claims
 
 ### Type Errors
 
@@ -161,6 +141,6 @@ npx tsc --noEmit
 ## Resources
 
 - [Next.js Documentation](https://nextjs.org/docs)
-- [Prisma Documentation](https://www.prisma.io/docs)
+- [Firebase Documentation](https://firebase.google.com/docs)
 - [Tailwind CSS](https://tailwindcss.com/docs)
 - [Zustand](https://zustand-demo.pmnd.rs/)

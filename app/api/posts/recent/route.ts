@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getFirebaseAdminDb } from "@/lib/firebase-admin";
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,20 +8,19 @@ export async function GET(request: NextRequest) {
     const limitParam = searchParams.get("limit");
     const limit = limitParam ? Math.min(parseInt(limitParam), 100) : 6;
 
-    const recentPosts = await prisma.post.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        excerpt: true,
-        coverImageURL: true,
-        createdAt: true,
-      },
-      take: limit,
-    });
+    const db = await getFirebaseAdminDb();
+    const recentPosts = (await db.collection("posts").get()).docs
+      .map((doc) => doc.data())
+      .sort((a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
+      .slice(0, limit)
+      .map((post) => ({
+        id: String(post.id),
+        title: String(post.title),
+        slug: String(post.slug),
+        excerpt: (post.excerpt as string | null | undefined) ?? null,
+        coverImageURL: (post.coverImageURL as string | null | undefined) ?? null,
+        createdAt: new Date(Number(post.createdAt ?? 0)).toISOString(),
+      }));
 
     const response = NextResponse.json(recentPosts, { status: 200 });
     

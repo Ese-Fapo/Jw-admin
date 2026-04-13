@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { WorkbookSection } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { isWorkbookSection } from "@/lib/domain-types";
+import { getFirebaseAdminDb } from "@/lib/firebase-admin";
+import { nowMs, weekKeyFromInput } from "@/lib/firestore-data";
 import { requireAdmin } from "@/lib/auth-guards";
 
 function parseWeekDate(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  date.setHours(0, 0, 0, 0);
-  return date;
+  return weekKeyFromInput(value);
 }
 
 export async function PATCH(
@@ -25,13 +22,14 @@ export async function PATCH(
     const body = await request.json();
 
     const data: {
-      weekOf?: Date;
-      section?: WorkbookSection;
+      weekOf?: string;
+      section?: string;
       partTitle?: string;
       personName?: string;
       assistantName?: string | null;
       position?: number;
       notes?: string | null;
+      updatedAt?: number;
     } = {};
 
     if (body.weekOf !== undefined) {
@@ -41,8 +39,8 @@ export async function PATCH(
     }
 
     if (body.section !== undefined) {
-      const section = String(body.section) as WorkbookSection;
-      if (!Object.values(WorkbookSection).includes(section)) {
+      const section = String(body.section);
+      if (!isWorkbookSection(section)) {
         return NextResponse.json({ error: "Invalid section value" }, { status: 400 });
       }
       data.section = section;
@@ -54,10 +52,17 @@ export async function PATCH(
     if (body.position !== undefined) data.position = Number(body.position);
     if (body.notes !== undefined) data.notes = body.notes ? String(body.notes) : null;
 
-    const updated = await prisma.workbookAssignment.update({
-      where: { id },
-      data,
-    });
+    data.updatedAt = nowMs();
+
+    const db = await getFirebaseAdminDb();
+    const ref = db.collection("workbookAssignments").doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
+    }
+
+    await ref.set(data, { merge: true });
+    const updated = { ...snap.data(), ...data, id };
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -78,9 +83,8 @@ export async function DELETE(
 
     const { id } = await params;
 
-    await prisma.workbookAssignment.delete({
-      where: { id },
-    });
+    const db = await getFirebaseAdminDb();
+    await db.collection("workbookAssignments").doc(id).delete();
 
     return NextResponse.json({ ok: true });
   } catch (error) {

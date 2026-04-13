@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getFirebaseAdminDb } from "@/lib/firebase-admin";
+import { nowMs, weekKeyFromInput } from "@/lib/firestore-data";
 import { requireAdmin } from "@/lib/auth-guards";
 import { workbookTemplateParts } from "@/lib/workbook-template";
 
 function parseWeekDate(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  date.setHours(0, 0, 0, 0);
-  return date;
+  return weekKeyFromInput(value);
 }
 
 export async function POST(request: NextRequest) {
@@ -26,7 +23,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Valid weekOf is required" }, { status: 400 });
     }
 
-    const existingCount = await prisma.workbookAssignment.count({ where: { weekOf } });
+    const db = await getFirebaseAdminDb();
+    const existingDocs = await db.collection("workbookAssignments").where("weekOf", "==", weekOf).get();
+    const existingCount = existingDocs.size;
     if (existingCount > 0 && !overwrite) {
       return NextResponse.json(
         {
@@ -38,11 +37,17 @@ export async function POST(request: NextRequest) {
     }
 
     if (overwrite && existingCount > 0) {
-      await prisma.workbookAssignment.deleteMany({ where: { weekOf } });
+      const batch = db.batch();
+      existingDocs.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
     }
 
-    const created = await prisma.workbookAssignment.createMany({
-      data: workbookTemplateParts.map((part) => ({
+    const timestamp = nowMs();
+    const batch = db.batch();
+    workbookTemplateParts.forEach((part) => {
+      const ref = db.collection("workbookAssignments").doc();
+      batch.set(ref, {
+        id: ref.id,
         weekOf,
         section: part.section,
         partTitle: part.partTitle,
@@ -51,12 +56,15 @@ export async function POST(request: NextRequest) {
         position: part.position,
         notes: null,
         createdById: admin.user.id,
-      })),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
     });
+    await batch.commit();
 
     return NextResponse.json({
       ok: true,
-      createdCount: created.count,
+      createdCount: workbookTemplateParts.length,
       weekOf,
     });
   } catch (error) {

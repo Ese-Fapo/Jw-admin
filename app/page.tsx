@@ -1,6 +1,7 @@
-import { WorkbookSection } from "@prisma/client";
+import type { WorkbookSection } from "@/lib/domain-types";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getFirebaseAdminDb } from "@/lib/firebase-admin";
+import { weekKeyFromDate } from "@/lib/firestore-data";
 import { workbookSectionLabels, workbookTemplateParts } from "@/lib/workbook-template";
 
 
@@ -54,17 +55,12 @@ function startOfWeek(date: Date) {
 }
 
 function hasConfiguredDatabase() {
-  const databaseUrl = process.env.DATABASE_URL ?? "";
-
-  if (!databaseUrl) return false;
-
-  return !["USER", "PASSWORD", "HOST", "DATABASE"].some((token) =>
-    databaseUrl.includes(token)
-  );
+  return Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 }
 
 export default async function HomePage() {
   const weekOf = startOfWeek(new Date());
+  const weekKey = weekKeyFromDate(weekOf);
 
   let assignments: {
     id: string;
@@ -79,19 +75,28 @@ export default async function HomePage() {
 
   if (!dbUnavailable) {
     try {
-      assignments = await prisma.workbookAssignment.findMany({
-        where: { weekOf },
-        orderBy: [{ section: "asc" }, { position: "asc" }],
-        select: {
-          id: true,
-          section: true,
-          partTitle: true,
-          personName: true,
-          assistantName: true,
-          notes: true,
-          position: true,
-        },
-      });
+      const db = await getFirebaseAdminDb();
+      const snapshot = await db
+        .collection("workbookAssignments")
+        .where("weekOf", "==", weekKey)
+        .get();
+
+      assignments = snapshot.docs
+        .map((doc) => doc.data())
+        .map((row) => ({
+          id: String(row.id),
+          section: row.section as WorkbookSection,
+          partTitle: String(row.partTitle ?? ""),
+          personName: String(row.personName ?? "To be assigned"),
+          assistantName: (row.assistantName as string | null | undefined) ?? null,
+          notes: (row.notes as string | null | undefined) ?? null,
+          position: Number(row.position ?? 0),
+        }))
+        .sort((a, b) => {
+          if (a.section < b.section) return -1;
+          if (a.section > b.section) return 1;
+          return a.position - b.position;
+        });
     } catch (error) {
       dbUnavailable = true;
       console.error("Workbook data unavailable:", error);

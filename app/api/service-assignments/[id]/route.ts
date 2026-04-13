@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ServiceAssignmentCategory } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { isServiceAssignmentCategory } from "@/lib/domain-types";
+import { getFirebaseAdminDb } from "@/lib/firebase-admin";
+import { nowMs, weekKeyFromInput } from "@/lib/firestore-data";
 import { requireAdmin } from "@/lib/auth-guards";
 
 function parseWeekDate(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  date.setHours(0, 0, 0, 0);
-  return date;
+  return weekKeyFromInput(value);
 }
 
 export async function PATCH(
@@ -25,8 +22,8 @@ export async function PATCH(
     const body = await request.json();
 
     const data: {
-      weekOf?: Date;
-      category?: ServiceAssignmentCategory;
+      weekOf?: string;
+      category?: string;
       title?: string;
       assigneeName?: string;
       assistantName?: string | null;
@@ -34,6 +31,7 @@ export async function PATCH(
       timeLabel?: string | null;
       notes?: string | null;
       position?: number;
+      updatedAt?: number;
     } = {};
 
     if (body.weekOf !== undefined) {
@@ -43,8 +41,8 @@ export async function PATCH(
     }
 
     if (body.category !== undefined) {
-      const category = String(body.category) as ServiceAssignmentCategory;
-      if (!Object.values(ServiceAssignmentCategory).includes(category)) {
+      const category = String(body.category);
+      if (!isServiceAssignmentCategory(category)) {
         return NextResponse.json({ error: "Invalid category value" }, { status: 400 });
       }
       data.category = category;
@@ -58,10 +56,16 @@ export async function PATCH(
     if (body.notes !== undefined) data.notes = body.notes ? String(body.notes) : null;
     if (body.position !== undefined) data.position = Number(body.position);
 
-    const updated = await prisma.serviceAssignment.update({
-      where: { id },
-      data,
-    });
+    data.updatedAt = nowMs();
+    const db = await getFirebaseAdminDb();
+    const ref = db.collection("serviceAssignments").doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
+    }
+
+    await ref.set(data, { merge: true });
+    const updated = { ...snap.data(), ...data, id };
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -82,9 +86,8 @@ export async function DELETE(
 
     const { id } = await params;
 
-    await prisma.serviceAssignment.delete({
-      where: { id },
-    });
+    const db = await getFirebaseAdminDb();
+    await db.collection("serviceAssignments").doc(id).delete();
 
     return NextResponse.json({ ok: true });
   } catch (error) {

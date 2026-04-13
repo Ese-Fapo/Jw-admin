@@ -1,4 +1,4 @@
-import type { ServiceAssignmentCategory } from "@prisma/client";
+import type { ServiceAssignmentCategory } from "@/lib/domain-types";
 
 export type CartScheduleRow = {
   title: string;
